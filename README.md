@@ -12,14 +12,23 @@ Tutto gira **nel browser** (Whisper tramite [Transformers.js](https://github.com
 ## Funzioni
 
 - Upload di audio e video supportati dal browser (mp3, wav, m4a, aac, ogg, mp4, mov…).
-- Due modelli: **Preciso** (whisper-small, ~250 MB) e **Veloce** (whisper-base, ~80 MB). Il download avviene solo la prima volta, poi resta in cache.
-- **Testo noto (consigliato)**: se incolli il testo — o se l'mp3 lo contiene già nei metadati, come i file di Suno — l'app usa le tue parole esatte e calcola solo i tempi. È la modalità più affidabile.
+- Modelli: **Automatico** (base se c'è il testo, small altrimenti), **Preciso** (whisper-small, ~250 MB), **Veloce** (whisper-base, ~80 MB). Il download avviene solo la prima volta, poi resta in cache.
+- **Testo noto (consigliato)**: se incolli il testo (anche con i tempi già scritti, che vengono ignorati) — o se l'mp3 lo contiene già nei metadati, come i file di Suno — l'app usa le tue parole esatte e calcola solo i tempi. È la modalità più affidabile.
 - Editor: ascolto da ogni riga, modifica di tempo e testo, ⏱ per fissare l'inizio al punto di riproduzione, unione ed eliminazione righe. Le righe incerte sono evidenziate.
 - Export: TXT nel formato `(m:ss) testo`, **LRC** (testi sincronizzati), **SRT** (sottotitoli).
 
-## Prestazioni misurate
+## Precisione e velocità misurate
 
-Canzone di 2:05, Chromium su 4 core senza GPU, modello small: ~2 minuti e 10 secondi (escluso il primo download del modello). Il modello base è circa 2 volte più veloce ma meno preciso.
+Canzone di prova di 2:05 (37 righe) con tempi scritti a mano come riferimento; Chromium, 4 core, nessuna GPU:
+
+| Modalità | Modello | Tempo | Righe con tempo esatto (al secondo) | Entro 1 s |
+| --- | --- | --- | --- | --- |
+| Con testo | base | ~50 s | 30/37 | 37/37 |
+| Con testo | small | ~2 min 30 s | 29/37 | 37/37 |
+| Automatica | small | ~2 min 10 s | inizi riga trovati: 33/37 | — |
+| Automatica | base | ~50 s | inizi riga trovati: 26/37 | — |
+
+Con il testo il modello base basta: per questo "Automatico" lo sceglie quando il testo c'è.
 
 Su telefono è più lento e con il modello small può esaurire la memoria: in quel caso usare il modello base.
 

@@ -47,10 +47,10 @@ async function transcribe() {
     setStatus('Leggo il file…');
     showProgress(null);
     const { audio } = await decodeToMono16k(await state.file.arrayBuffer());
-    const chunks = await runWhisper(audio);
+    const lyricLines = parseLyrics(els.lyrics.value);
+    const chunks = await runWhisper(audio, pickModel(lyricLines.length > 0));
     const words = normalizeWords(chunks);
     if (!words.length) throw new Error('Non ho riconosciuto parole cantate in questo file.');
-    const lyricLines = parseLyrics(els.lyrics.value);
     state.lines = lyricLines.length ? alignLyrics(lyricLines, words) : groupWords(words);
     showResult();
     const unsure = state.lines.filter((l) => l.uncertain).length;
@@ -63,7 +63,13 @@ async function transcribe() {
   }
 }
 
-function runWhisper(audio) {
+// Con il testo noto servono solo i tempi: il modello base è preciso quanto small e ~3 volte più veloce
+function pickModel(hasLyrics) {
+  if (els.model.value !== 'auto') return els.model.value;
+  return hasLyrics ? 'Xenova/whisper-base' : 'Xenova/whisper-small';
+}
+
+function runWhisper(audio, model) {
   worker ??= new Worker(new URL('./worker.js', import.meta.url), { type: 'module' });
   const files = {};
   const started = performance.now();
@@ -86,7 +92,7 @@ function runWhisper(audio) {
       }
     };
     worker.onerror = (e) => { reject(new Error(e.message || 'Errore nel worker')); };
-    worker.postMessage({ type: 'transcribe', audio, model: els.model.value, language: els.language.value }, [audio.buffer]);
+    worker.postMessage({ type: 'transcribe', audio, model, language: els.language.value }, [audio.buffer]);
   });
 }
 

@@ -71,10 +71,14 @@ function finish(line) {
   return { start: line.start, end: line.words[line.words.length - 1].end, text, uncertain: false };
 }
 
-/** Estrae le righe cantate da un testo (toglie tag tipo [Chorus] e righe vuote). */
+/**
+ * Estrae le righe cantate da un testo: toglie tag tipo [Chorus] e righe vuote.
+ * Accetta anche testi già con i tempi "(0:37) …": i tempi vengono tolti e
+ * una riga con più tempi viene divisa in più righe.
+ */
 export function parseLyrics(raw) {
   return (raw || '')
-    .split(/\r?\n/)
+    .split(/\r?\n|\s*\(\d+:\d{2}(?:\.\d+)?\)\s*/)
     .map((l) => l.trim())
     .filter((l) => l && !/^\[.*\]$/.test(l));
 }

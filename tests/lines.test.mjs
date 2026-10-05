@@ -25,6 +25,10 @@ test('parseLyrics ignora tag e righe vuote', () => {
   assert.deepEqual(parseLyrics('[Verse]\nUno due\n\n[Chorus]\nTre quattro\n'), ['Uno due', 'Tre quattro']);
 });
 
+test('parseLyrics toglie i tempi già presenti e divide le righe con due tempi', () => {
+  assert.deepEqual(parseLyrics('(0:03) Uno due\n(0:37) Tre, (0:40) quattro,\n'), ['Uno due', 'Tre,', 'quattro,']);
+});
+
 test('alignLyrics usa il testo fornito e i tempi del riconoscimento, anche con errori', () => {
   const words = normalizeWords([
     w(' Spasce', 3, 3.4), w(' sotto', 3.4, 3.8), w(' il', 3.8, 4.0), w(' ponte', 4.0, 4.5),
