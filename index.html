@@ -1,0 +1,88 @@
+<!doctype html>
+<html lang="it">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Lyrics Sync</title>
+  <meta name="description" content="Trascrive le canzoni con il tempo di ogni riga, direttamente nel browser.">
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <main class="wrap">
+    <header class="top">
+      <h1>Lyrics Sync</h1>
+      <p class="sub">Carica una canzone: ottieni il testo con il tempo di ogni riga. Tutto avviene nel tuo browser, gratis, senza inviare file a nessun server.</p>
+    </header>
+
+    <section class="card" id="setup">
+      <label class="drop" id="drop">
+        <input type="file" id="file" accept="audio/*,video/*" hidden>
+        <span class="drop-title" id="drop-title">Trascina qui un file audio o video</span>
+        <span class="drop-hint">oppure tocca per sceglierlo · mp3, wav, m4a, mp4, mov…</span>
+      </label>
+
+      <div class="row">
+        <label class="field">
+          <span>Modello</span>
+          <select id="model">
+            <option value="Xenova/whisper-small" selected>Preciso (small · ~250 MB)</option>
+            <option value="Xenova/whisper-base">Veloce (base · ~80 MB)</option>
+          </select>
+        </label>
+        <label class="field">
+          <span>Lingua</span>
+          <select id="language">
+            <option value="italian" selected>Italiano</option>
+            <option value="english">Inglese</option>
+            <option value="spanish">Spagnolo</option>
+            <option value="french">Francese</option>
+            <option value="german">Tedesco</option>
+            <option value="portuguese">Portoghese</option>
+            <option value="">Rileva automaticamente</option>
+          </select>
+        </label>
+      </div>
+
+      <details id="lyrics-box">
+        <summary>Hai già il testo? Incollalo per un risultato più preciso <span class="badge" id="lyrics-badge" hidden>trovato nel file</span></summary>
+        <p class="hint">L'app userà le tue parole esatte e calcolerà solo i tempi. Una riga del testo = una riga del risultato. I tag come <code>[Chorus]</code> vengono ignorati.</p>
+        <textarea id="lyrics" rows="8" placeholder="Una riga per verso…"></textarea>
+      </details>
+
+      <button class="primary" id="go" disabled>Trascrivi</button>
+      <p class="status" id="status" role="status"></p>
+      <progress id="progress" hidden></progress>
+    </section>
+
+    <section class="card" id="result" hidden>
+      <div class="player" id="player"></div>
+      <div class="toolbar">
+        <button id="copy">Copia testo</button>
+        <button id="dl-txt">TXT</button>
+        <button id="dl-lrc">LRC</button>
+        <button id="dl-srt">SRT</button>
+      </div>
+      <p class="hint">Tocca ▶ per ascoltare da quella riga. I tempi si modificano a mano (es. 1:03.4). Usa <b>⏱</b> durante la riproduzione per fissare l'inizio della riga al punto attuale. Le righe <span class="warn-dot"></span> sono da controllare.</p>
+      <ol class="lines" id="lines"></ol>
+      <button id="add-line" class="ghost">+ Aggiungi riga</button>
+    </section>
+  </main>
+
+  <template id="line-tpl">
+    <li class="line">
+      <div class="when">
+        <button class="play" title="Ascolta da qui" aria-label="Ascolta da qui">▶</button>
+        <input class="time-edit" inputmode="decimal" aria-label="Tempo di inizio">
+      </div>
+      <input class="text" aria-label="Testo">
+      <div class="actions">
+        <button class="stamp" title="Imposta al punto attuale">⏱</button>
+        <button class="merge" title="Unisci alla riga precedente">⤒</button>
+        <button class="del" title="Elimina riga">✕</button>
+      </div>
+    </li>
+  </template>
+
+  <script type="module" src="js/app.js"></script>
+</body>
+</html>
