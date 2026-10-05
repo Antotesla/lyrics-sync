@@ -16,7 +16,8 @@
 
     <section class="card" id="setup">
       <label class="drop" id="drop">
-        <input type="file" id="file" accept="audio/*,video/*" hidden>
+        <!-- niente "accept": su iOS l'app File mostra in grigio gli mp3 con accept="audio/*" -->
+        <input type="file" id="file" hidden>
         <span class="drop-title" id="drop-title">Trascina qui un file audio o video</span>
         <span class="drop-hint">oppure tocca per sceglierlo · mp3, wav, m4a, mp4, mov…</span>
       </label>
