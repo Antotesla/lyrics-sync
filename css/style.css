@@ -79,6 +79,11 @@ details .hint { margin-top: 8px; }
   background: var(--active); color: var(--accent); font-size: 0.8rem;
 }
 
+.notice {
+  margin: 16px 0 0; padding: 12px; border-radius: 10px;
+  border: 1px solid var(--warn); background: color-mix(in srgb, var(--warn) 12%, transparent);
+  font-size: 0.9rem;
+}
 .status { min-height: 1.5em; margin: 12px 0 4px; color: var(--muted); }
 .status.error { color: #d64545; }
 progress { width: 100%; }

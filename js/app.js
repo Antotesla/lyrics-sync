@@ -14,6 +14,10 @@ const els = {
 const state = { file: null, media: null, lines: [], baseName: 'testo' };
 let worker = null;
 
+// iPhone/iPad (anche iPad che si presenta come Mac): la trascrizione supera la memoria concessa a Safari
+const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+$('ios-warning').hidden = !isIOS;
+
 // ---------- Scelta del file ----------
 
 els.file.addEventListener('change', () => els.file.files[0] && selectFile(els.file.files[0]));

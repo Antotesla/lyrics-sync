@@ -30,7 +30,7 @@ Canzone di prova di 2:05 (37 righe) con tempi scritti a mano come riferimento; C
 
 Con il testo il modello base basta: per questo "Automatico" lo sceglie quando il testo c'è.
 
-Su telefono è più lento e con il modello small può esaurire la memoria: in quel caso usare il modello base.
+**iPhone/iPad: non funziona.** Durante la trascrizione il motore wasm arriva a ~850 MB (misurato) e Safari su iPhone chiude la pagina dopo pochi secondi di ascolto. Il modello tiny usa meno memoria ma sbaglia i tempi fino a 30 s; ridurre le ottimizzazioni di ONNX Runtime abbassa il picco solo a ~650 MB e rompe i tempi. Su iOS l'app mostra un avviso.
 
 ## Limiti
 
