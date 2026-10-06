@@ -271,7 +271,12 @@ export function createKaraoke(ctx) {
       y += lays[i].height + gap;
     }
     const target = (i) => currentTop - (tops[i] ?? 0);
-    const offset = idx > 0 && tops[idx - 1] != null ? target(idx - 1) + (target(idx) - target(idx - 1)) * s : target(cur);
+    // con una sola riga visibile sul video niente scorrimento: la riga nuova appare in dissolvenza al posto della vecchia
+    const dissolve = onVideo && shownNext === 0;
+    const offset = !dissolve && idx > 0 && tops[idx - 1] != null ? target(idx - 1) + (target(idx) - target(idx - 1)) * s : target(cur);
+    const topOf = (i) => (dissolve && i === idx - 1 ? target(idx) + tops[idx] : offset + tops[i]);
+    // trasparenza di una riga a distanza d dalla corrente (le righe oltre quelle visibili sono invisibili)
+    const fadeAt = (d) => (d >= 1 && d <= shownNext ? Math.max(0, (onVideo ? 0.8 : 0.7) - 0.2 * (d - 1)) : 0);
 
     ctx.save();
     if (band) {
@@ -281,25 +286,25 @@ export function createKaraoke(ctx) {
       ctx.clip();
     }
     for (let i = from; i < to; i++) {
-      const top = offset + tops[i];
+      const top = topOf(i);
       const isCur = i === idx;
       const dist = i - cur;
-      const scale = isCur ? SMALL + (1 - SMALL) * s : SMALL;
+      const scale = isCur ? (dissolve ? 1 : SMALL + (1 - SMALL) * s) : dissolve && i === idx - 1 ? 1 : SMALL;
+      // durante lo scorrimento ogni riga passa dalla trasparenza del posto precedente (dist+1) a quella nuova
       let alpha;
-      if (isCur) alpha = 1;
-      else if (dist < 0) alpha = 0.45 * (1 - s);
-      else if (idx < 0 && i === 0) alpha = 0.85;
-      else if (dist > shownNext) alpha = 0.6 * s; // la riga che entra dal basso
-      else alpha = Math.max(0, (onVideo ? 0.8 : 0.7) - 0.2 * (dist - 1));
-      if (top > H || top + lays[i].height < -row) continue;
+      if (idx < 0) alpha = i === 0 ? 0.85 : fadeAt(dist);
+      else if (isCur) alpha = dissolve ? clamp01((s - 0.4) / 0.6) : fadeAt(1) + (1 - fadeAt(1)) * s;
+      else if (dist < 0) alpha = dissolve ? 1 - clamp01(s / 0.6) : 0.45 * (1 - s); // in dissolvenza le due righe si sovrappongono solo per un attimo
+      else alpha = fadeAt(dist + 1) + (fadeAt(dist) - fadeAt(dist + 1)) * s;
+      if (alpha <= 0.01 || top > H || top + lays[i].height < -row) continue;
       drawLine(lays[i], top, { scale, alpha, t, active: isCur, size, style });
     }
     ctx.restore();
 
     const b = Math.max(0, idx); // prima della prima riga la pallina entra sulla riga 0
-    const anchors = anchorsOf(lays[b], offset + tops[b], idx >= 0 ? SMALL + (1 - SMALL) * s : SMALL, size);
+    const anchors = anchorsOf(lays[b], topOf(b), idx >= 0 ? (dissolve ? 1 : SMALL + (1 - SMALL) * s) : SMALL, size);
     // la pallina parte dall'ultima parola della riga precedente (che intanto scorre in su)
-    const prev = idx > 0 && lays[idx - 1] ? anchorsOf(lays[idx - 1], offset + tops[idx - 1], SMALL, size).at(-1) : null;
+    const prev = idx > 0 && lays[idx - 1] ? anchorsOf(lays[idx - 1], topOf(idx - 1), dissolve ? 1 : SMALL, size).at(-1) : null;
     drawBall(anchors, prev, t, size, onVideo ? o.ballColor : '#ff5a5f');
   }
 

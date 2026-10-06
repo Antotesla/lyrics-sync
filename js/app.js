@@ -1,8 +1,8 @@
-import { decodeToMono16k } from './audio.js?v=20261006i';
-import { readId3Lyrics } from './id3.js?v=20261006i';
-import { normalizeWords, groupWords, parseLyrics, alignLyrics, distributeWords, shiftWords } from './lines.js?v=20261006i';
-import { formatShort, formatPrecise, parseTime, toTxt, toLrc, toSrt, toAss } from './formats.js?v=20261006i';
-import { createKaraoke, DEFAULT_OPTIONS } from './karaoke.js?v=20261006i';
+import { decodeToMono16k } from './audio.js?v=20261006k';
+import { readId3Lyrics } from './id3.js?v=20261006k';
+import { normalizeWords, groupWords, parseLyrics, alignLyrics, distributeWords, shiftWords } from './lines.js?v=20261006k';
+import { formatShort, formatPrecise, parseTime, toTxt, toLrc, toSrt, toAss } from './formats.js?v=20261006k';
+import { createKaraoke, DEFAULT_OPTIONS } from './karaoke.js?v=20261006k';
 
 const $ = (id) => document.getElementById(id);
 const els = {
@@ -104,7 +104,7 @@ function pickModel() {
 }
 
 function runWhisper(audio, model) {
-  worker ??= new Worker(new URL('./worker.js?v=20261006i', import.meta.url), { type: 'module' });
+  worker ??= new Worker(new URL('./worker.js?v=20261006k', import.meta.url), { type: 'module' });
   const files = {};
   const started = performance.now();
   return new Promise((resolve, reject) => {
@@ -330,6 +330,7 @@ function karaokeLoop() {
 }
 
 function drawKaraoke() {
+  if (recording) recording.noteDraw();
   karaoke.draw(state.lines.filter((l) => l.text.trim()), state.media ? state.media.currentTime : 0, karaokeOptions());
 }
 
@@ -413,13 +414,38 @@ $('export').addEventListener('click', async () => {
     audioBitsPerSecond: 192000,
   });
   const parts = [];
-  recording = { rec, cancelled: false };
+  // Controllo della regolarità: se tra due disegni passa troppo tempo mentre si registra,
+  // nel video ci sarebbe un'immagine ferma (succede se Chrome rallenta la pagina).
+  const glitches = { count: 0, worst: 0 };
+  let lastDraw = 0;
+  recording = {
+    rec,
+    cancelled: false,
+    noteDraw() {
+      const now = performance.now();
+      if (rec.state === 'recording' && lastDraw && now - lastDraw > 250) {
+        glitches.count++;
+        glitches.worst = Math.max(glitches.worst, now - lastDraw);
+      }
+      lastDraw = now;
+    },
+  };
   rec.ondataavailable = (e) => e.data.size && parts.push(e.data);
   const finished = new Promise((resolve) => { rec.onstop = resolve; });
   const onEnded = () => rec.state !== 'inactive' && rec.stop();
   // pausa durante l'export = pausa della registrazione (altrimenti nel video resta l'immagine ferma)
   const onPause = () => { if (rec.state === 'recording' && !m.ended) rec.pause(); };
-  const onPlay = () => { if (rec.state === 'paused') rec.resume(); };
+  const onPlay = () => { lastDraw = 0; drawKaraoke(); if (rec.state === 'paused') rec.resume(); };
+  // Scheda nascosta (o finestra coperta del tutto): Chrome smette di disegnare ma l'audio continuerebbe.
+  // Meglio mettere in pausa e riprendere quando si torna.
+  let pausedByHide = false;
+  const onVisibility = () => {
+    if (document.hidden && !m.paused) { pausedByHide = true; m.pause(); }
+    else if (!document.hidden && pausedByHide) { pausedByHide = false; m.play().catch(() => {}); }
+  };
+  document.addEventListener('visibilitychange', onVisibility);
+  // Il disegno durante l'export non dipende solo dall'aggiornamento dello schermo (requestAnimationFrame)
+  const driver = setInterval(() => { if (!m.paused) drawKaraoke(); }, 1000 / 30);
   m.addEventListener('ended', onEnded);
   m.addEventListener('pause', onPause);
   m.addEventListener('play', onPlay);
@@ -436,7 +462,9 @@ $('export').addEventListener('click', async () => {
   rec.pause(); // riparte con il play, così l'inizio del video coincide con l'inizio della canzone
   const tick = setInterval(() => {
     const d = m.duration || 1;
-    const paused = m.paused && !m.ended ? ' — in pausa: premi ▶ per continuare' : '';
+    const paused = m.paused && !m.ended
+      ? (pausedByHide ? ' — in pausa perché la scheda è nascosta: riprende quando torni qui' : ' — in pausa: premi ▶ per continuare')
+      : '';
     setExport(`Registrazione in corso: ${formatShort(m.currentTime)} / ${formatShort(d)} (${fmt.ext.toUpperCase()})${paused}`);
     $('export-progress').value = m.currentTime / d;
   }, 250);
@@ -446,6 +474,8 @@ $('export').addEventListener('click', async () => {
   m.removeEventListener('ended', onEnded);
   m.removeEventListener('pause', onPause);
   m.removeEventListener('play', onPlay);
+  document.removeEventListener('visibilitychange', onVisibility);
+  clearInterval(driver);
   $('k-seek').disabled = false;
   audio.disconnect();
   stream.getTracks().forEach((t) => t.stop());
@@ -464,7 +494,10 @@ $('export').addEventListener('click', async () => {
   a.click();
   setTimeout(() => URL.revokeObjectURL(a.href), 60000);
   $('export-progress').value = 1;
-  setExport(`Fatto: ${a.download} (${(blob.size / 1048576).toFixed(1)} MB).${fmt.warning}`);
+  const glitchNote = glitches.count
+    ? ` Attenzione: in ${glitches.count} punti il disegno si è fermato (fino a ${(glitches.worst / 1000).toFixed(1)} s), nel video ci possono essere scatti. Rifai l'export tenendo la finestra in primo piano e senza altre finestre davanti.`
+    : '';
+  setExport(`Fatto: ${a.download} (${(blob.size / 1048576).toFixed(1)} MB).${fmt.warning}${glitchNote}`, glitches.count > 0);
 });
 
 $('export-cancel').addEventListener('click', () => {
