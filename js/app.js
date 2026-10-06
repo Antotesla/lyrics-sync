@@ -1,8 +1,8 @@
-import { decodeToMono16k } from './audio.js?v=20261006c';
-import { readId3Lyrics } from './id3.js?v=20261006c';
-import { normalizeWords, groupWords, parseLyrics, alignLyrics, distributeWords, shiftWords } from './lines.js?v=20261006c';
-import { formatShort, formatPrecise, parseTime, toTxt, toLrc, toSrt, toAss } from './formats.js?v=20261006c';
-import { createKaraoke } from './karaoke.js?v=20261006c';
+import { decodeToMono16k } from './audio.js?v=20261006d';
+import { readId3Lyrics } from './id3.js?v=20261006d';
+import { normalizeWords, groupWords, parseLyrics, alignLyrics, distributeWords, shiftWords } from './lines.js?v=20261006d';
+import { formatShort, formatPrecise, parseTime, toTxt, toLrc, toSrt, toAss } from './formats.js?v=20261006d';
+import { createKaraoke, DEFAULT_OPTIONS } from './karaoke.js?v=20261006d';
 
 const $ = (id) => document.getElementById(id);
 const els = {
@@ -75,7 +75,7 @@ function pickModel(hasLyrics) {
 }
 
 function runWhisper(audio, model) {
-  worker ??= new Worker(new URL('./worker.js?v=20261006c', import.meta.url), { type: 'module' });
+  worker ??= new Worker(new URL('./worker.js?v=20261006d', import.meta.url), { type: 'module' });
   const files = {};
   const started = performance.now();
   return new Promise((resolve, reject) => {
@@ -135,9 +135,12 @@ function setMedia(kind, url) {
   media.controls = true;
   media.playsInline = true;
   media.src = url;
-  media.addEventListener('timeupdate', highlightCurrent);
-  media.addEventListener('play', karaokeLoop);
+  media.addEventListener('timeupdate', () => { highlightCurrent(); updateControls(); });
+  media.addEventListener('play', () => { updateControls(); karaokeLoop(); });
+  media.addEventListener('pause', updateControls);
   media.addEventListener('seeked', drawKaraoke);
+  media.addEventListener('loadeddata', drawKaraoke);
+  media.addEventListener('loadedmetadata', updateControls);
   els.player.replaceChildren(media);
   state.media = media;
 }
@@ -238,13 +241,51 @@ function highlightCurrent() {
 
 const karaoke = createKaraoke($('k-canvas').getContext('2d'));
 
+// Impostazioni dell'aspetto (ricordate dal browser)
+const LOOK_KEY = 'lyrics-sync-look';
+const lookFields = { bg: 'k-bg', position: 'k-pos', readability: 'k-read', bandOpacity: 'k-band', nextLines: 'k-next', textSize: 'k-size', sungColor: 'k-sung', ballColor: 'k-ball' };
+try {
+  const saved = JSON.parse(localStorage.getItem(LOOK_KEY) || '{}');
+  for (const [k, id] of Object.entries(lookFields)) if (saved[k] != null) $(id).value = String(saved[k]);
+} catch { /* nessuna impostazione salvata */ }
+for (const id of Object.values(lookFields)) {
+  $(id).addEventListener('change', () => {
+    try { localStorage.setItem(LOOK_KEY, JSON.stringify(lookValues())); } catch { /* storage non disponibile */ }
+    drawKaraoke();
+  });
+}
+
+function lookValues() {
+  const v = {};
+  for (const [k, id] of Object.entries(lookFields)) v[k] = $(id).value;
+  return v;
+}
+
+/** Opzioni per il disegno: sul video caricato se c'è e se l'utente non ha scelto il cielo. */
+function karaokeOptions() {
+  const v = lookValues();
+  const hasVideo = state.media?.tagName === 'VIDEO' && state.media.videoWidth > 0;
+  return {
+    ...DEFAULT_OPTIONS,
+    background: v.bg === 'auto' && hasVideo ? 'video' : 'sky',
+    video: hasVideo ? state.media : null,
+    position: v.position,
+    readability: v.readability,
+    bandOpacity: Number(v.bandOpacity),
+    nextLines: Number(v.nextLines),
+    textSize: v.textSize,
+    sungColor: v.sungColor,
+    ballColor: v.ballColor,
+  };
+}
+
 function karaokeLoop() {
   drawKaraoke();
   if (state.media && !state.media.paused) requestAnimationFrame(karaokeLoop);
 }
 
 function drawKaraoke() {
-  karaoke.draw(state.lines.filter((l) => l.text.trim()), state.media ? state.media.currentTime : 0);
+  karaoke.draw(state.lines.filter((l) => l.text.trim()), state.media ? state.media.currentTime : 0, karaokeOptions());
 }
 
 // Il font arrotondato arriva da Google Fonts: ridisegna quando è pronto (le misure delle parole cambiano)
@@ -255,6 +296,29 @@ $('k-full').addEventListener('click', () => {
   if (document.fullscreenElement) document.exitFullscreen();
   else box.requestFullscreen?.().catch(() => {});
 });
+
+// Controlli di riproduzione (l'elemento audio/video vero è nascosto)
+$('k-play').addEventListener('click', () => {
+  if (!state.media) return;
+  if (state.media.paused) state.media.play(); else state.media.pause();
+});
+$('k-seek').addEventListener('input', (e) => {
+  if (!state.media) return;
+  state.media.currentTime = Number(e.target.value);
+  drawKaraoke();
+});
+$('k-canvas').addEventListener('click', () => $('k-play').click());
+
+function updateControls() {
+  const m = state.media;
+  if (!m) return;
+  const d = Number.isFinite(m.duration) ? m.duration : 0;
+  $('k-play').textContent = m.paused ? '▶' : '❚❚';
+  $('k-play').setAttribute('aria-label', m.paused ? 'Riproduci' : 'Pausa');
+  $('k-seek').max = String(d || 1);
+  if (document.activeElement !== $('k-seek')) $('k-seek').value = String(m.currentTime);
+  $('k-time').textContent = `${formatShort(m.currentTime)} / ${formatShort(d)}`;
+}
 
 // ---------- Export ----------
 
@@ -271,7 +335,7 @@ $('copy').addEventListener('click', async () => {
 $('dl-txt').addEventListener('click', () => download(toTxt(cleanLines()), 'txt'));
 $('dl-lrc').addEventListener('click', () => download(toLrc(cleanLines(), state.baseName), 'lrc'));
 $('dl-srt').addEventListener('click', () => download(toSrt(cleanLines()), 'srt'));
-$('dl-ass').addEventListener('click', () => download(toAss(cleanLines(), state.baseName), 'ass'));
+$('dl-ass').addEventListener('click', () => download(toAss(cleanLines(), state.baseName, karaokeOptions()), 'ass'));
 
 function download(text, ext) {
   const a = document.createElement('a');

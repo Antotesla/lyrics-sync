@@ -62,8 +62,42 @@ const assEscape = (s) => s.replace(/[{}]/g, '').replace(/\\/g, '');
  * File .ass con effetto karaoke: ogni parola si colora mentre viene cantata (\kf).
  * Ogni riga compare poco prima della prima parola e resta fino all'inizio della successiva.
  */
-export function toAss(lines, title = '') {
+/** "#rrggbb" + opacità (0..1) → colore ASS "&HAABBGGRR" (in ASS 00 = opaco). */
+function assColor(hex, opacity = 1) {
+  const m = /^#?([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})$/i.exec(hex) || [null, 'ff', 'ff', 'ff'];
+  const a = Math.round((1 - opacity) * 255).toString(16).padStart(2, '0');
+  return `&H${a}${m[3]}${m[2]}${m[1]}`.toUpperCase();
+}
+
+const ASS_SIZES = { small: 46, medium: 58, large: 70 };
+
+export function toAss(lines, title = '', opts = {}) {
   const LEAD = 0.6; // secondi di anticipo con cui compare la riga
+  const align = opts.position === 'top' ? 8 : opts.position === 'center' ? 5 : 2;
+  const band = (opts.readability ?? 'band') === 'band';
+  const boxColor = assColor('#000000', band ? Number(opts.bandOpacity ?? 0.55) : 0.95);
+  const size = ASS_SIZES[opts.textSize] ?? 56;
+  const MARGIN_V = 50;
+  const style = [
+    'Karaoke', 'Arial', size,
+    assColor(opts.sungColor || '#ffd23f'), // colore delle parole già cantate
+    '&H00FFFFFF', // colore prima di essere cantate
+    '&H00000000', // contorno nero
+    '&H80000000', // ombra
+    -1, 0, 0, 0, 100, 100, 0, 0,
+    1, band ? 2.5 : 3, band ? 0 : 2,
+    align, 60, 60, MARGIN_V, 1,
+  ].join(',');
+  // La fascia è un rettangolo disegnato a parte (layer 0): con BorderStyle 3 libass farebbe
+  // un riquadro per ogni parola, con blocchi irregolari.
+  const boxStyle = ['Box', 'Arial', 20, boxColor, boxColor, boxColor, boxColor, 0, 0, 0, 0, 100, 100, 0, 0, 1, 0, 0, 7, 0, 0, 0, 1].join(',');
+  const charsPerRow = Math.floor((1280 - 120) / (size * 0.55));
+  const boxFor = (text) => {
+    const rows = Math.min(3, Math.max(1, Math.ceil(text.length / charsPerRow)));
+    const h = Math.round(rows * size * 1.2 + 28);
+    const y = align === 2 ? 720 - MARGIN_V + 14 - h : align === 8 ? MARGIN_V - 14 : Math.round(360 - h / 2);
+    return `{\\pos(48,${y})\\p1}m 0 0 l ${1280 - 96} 0 ${1280 - 96} ${h} 0 ${h}{\\p0}`;
+  };
   const head = `[Script Info]
 Title: ${assEscape(title)}
 ScriptType: v4.00+
@@ -74,7 +108,8 @@ ScaledBorderAndShadow: yes
 
 [V4+ Styles]
 Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding
-Style: Karaoke,Arial,56,&H0000D7FF,&H00FFFFFF,&H00000000,&H80000000,-1,0,0,0,100,100,0,0,1,3,1,2,60,60,70,1
+Style: ${style}
+Style: ${boxStyle}
 
 [Events]
 Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
@@ -95,7 +130,8 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
       text += `{\\kf${dur}}${assEscape(w.text)} `;
       t = Math.max(w.start, t) + dur / 100;
     }
-    return `Dialogue: 0,${assTime(show)},${assTime(hide)},Karaoke,,0,0,0,,${text.trim()}`;
+    const karaokeEvent = `Dialogue: 1,${assTime(show)},${assTime(hide)},Karaoke,,0,0,0,,${text.trim()}`;
+    return band ? `Dialogue: 0,${assTime(show)},${assTime(hide)},Box,,0,0,0,,${boxFor(l.text)}\n${karaokeEvent}` : karaokeEvent;
   });
   return head + events.join('\n') + '\n';
 }

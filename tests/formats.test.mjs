@@ -33,7 +33,10 @@ test('toAss: una riga per verso, parole con \\kf e pausa iniziale con \\k', asyn
     start: 2, end: 3.2, text: 'Ciao mondo',
     words: [{ text: 'Ciao', start: 2, end: 2.5 }, { text: 'mondo', start: 2.7, end: 3.2 }],
   }]);
-  const dlg = ass.split('\n').find((l) => l.startsWith('Dialogue:'));
-  assert.equal(dlg, 'Dialogue: 0,0:00:01.40,0:00:05.20,Karaoke,,0,0,0,,{\\k60}{\\kf50}Ciao {\\k20}{\\kf50}mondo');
+  const dlg = ass.split('\n').find((l) => l.includes(',Karaoke,'));
+  assert.equal(dlg, 'Dialogue: 1,0:00:01.40,0:00:05.20,Karaoke,,0,0,0,,{\\k60}{\\kf50}Ciao {\\k20}{\\kf50}mondo');
+  assert.match(ass, /Dialogue: 0,0:00:01\.40,0:00:05\.20,Box,.*\\p1/); // fascia dietro alla riga
+  const outline = toAss([{ start: 2, end: 3, text: 'x', words: [{ text: 'x', start: 2, end: 3 }] }], '', { readability: 'outline' });
+  assert.doesNotMatch(outline, /,Box,,/);
   assert.match(ass, /\[V4\+ Styles\]/);
 });

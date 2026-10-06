@@ -15,8 +15,9 @@ Tutto gira **nel browser** (Whisper tramite [Transformers.js](https://github.com
 - Modelli: **Automatico** (base se c'è il testo, small altrimenti), **Preciso** (whisper-small, ~250 MB), **Veloce** (whisper-base, ~80 MB). Il download avviene solo la prima volta, poi resta in cache.
 - **Testo noto (consigliato)**: se incolli il testo (anche con i tempi già scritti, che vengono ignorati) — o se l'mp3 lo contiene già nei metadati, come i file di Suno — l'app usa le tue parole esatte e calcola solo i tempi. È la modalità più affidabile.
 - Editor: ascolto da ogni riga, modifica di tempo e testo, ⏱ per fissare l'inizio al punto di riproduzione, unione ed eliminazione righe. Le righe incerte sono evidenziate.
-- **Anteprima karaoke** (stile video per bambini): la riga corrente si illumina parola per parola, le righe successive scorrono sotto e una pallina rimbalza sulle parole cantate. Pulsante ⛶ per lo schermo intero. Il disegno (`js/karaoke.js`) dipende solo dal tempo, così servirà anche per esportare il video.
-- Export: TXT nel formato `(m:ss) testo`, **LRC** (testi sincronizzati), **SRT** (sottotitoli), **ASS karaoke** (parole che si colorano; si apre con VLC o Aegisub, o si incide nel video con `ffmpeg -i video.mp4 -vf ass=canzone.ass out.mp4`).
+- **Anteprima karaoke** (stile video per bambini): la riga corrente si illumina parola per parola, le righe successive scorrono sotto e una pallina rimbalza sulle parole cantate. Pulsante ⛶ per lo schermo intero.
+- **Testo sopra un video esistente**: se carichi un video, il karaoke viene disegnato sopra (in basso, in alto o al centro). Per restare leggibile su qualsiasi colore usa una fascia scura semitrasparente (regolabile) oppure solo contorno e ombra; righe successive, dimensione e colori sono impostabili in "Aspetto del testo" e vengono ricordati. Il disegno (`js/karaoke.js`) dipende solo dal tempo, così servirà anche per esportare il video.
+- Export: TXT nel formato `(m:ss) testo`, **LRC** (testi sincronizzati), **SRT** (sottotitoli), **ASS karaoke** (parole che si colorano, con le stesse impostazioni di posizione, fascia e colore — la pallina c'è solo nell'anteprima; si apre con VLC o Aegisub, o si incide nel video con `ffmpeg -i video.mp4 -vf ass=canzone.ass out.mp4`).
 
 ## Precisione e velocità misurate
 

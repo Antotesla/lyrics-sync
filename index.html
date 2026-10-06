@@ -65,11 +65,40 @@
     </section>
 
     <section class="card" id="result" hidden>
-      <div class="player" id="player"></div>
       <div class="karaoke" id="karaoke">
         <canvas id="k-canvas" width="1280" height="720" aria-label="Anteprima karaoke"></canvas>
         <button class="k-full" id="k-full" title="Schermo intero" aria-label="Schermo intero">⛶</button>
       </div>
+      <div class="controls">
+        <button id="k-play" aria-label="Riproduci">▶</button>
+        <input type="range" id="k-seek" min="0" max="1" step="0.01" value="0" aria-label="Posizione">
+        <span id="k-time">0:00 / 0:00</span>
+      </div>
+      <!-- l'elemento audio/video vero è nascosto: l'immagine si vede dentro il karaoke -->
+      <div class="media-host" id="player"></div>
+
+      <details class="look" id="look">
+        <summary>Aspetto del testo</summary>
+        <div class="look-grid">
+          <label class="field"><span>Sfondo</span>
+            <select id="k-bg"><option value="auto">Video caricato (se c'è)</option><option value="sky">Cielo azzurro</option></select></label>
+          <label class="field"><span>Posizione sul video</span>
+            <select id="k-pos"><option value="bottom">In basso</option><option value="top">In alto</option><option value="center">Al centro</option></select></label>
+          <label class="field"><span>Leggibilità</span>
+            <select id="k-read"><option value="band">Fascia scura dietro al testo</option><option value="outline">Solo contorno e ombra</option></select></label>
+          <label class="field"><span>Scurezza fascia</span>
+            <select id="k-band"><option value="0.4">Leggera</option><option value="0.55">Media</option><option value="0.7">Forte</option></select></label>
+          <label class="field"><span>Righe successive</span>
+            <select id="k-next"><option value="0">Nessuna</option><option value="1">1</option><option value="2">2</option></select></label>
+          <label class="field"><span>Dimensione testo</span>
+            <select id="k-size"><option value="small">Piccolo</option><option value="medium">Medio</option><option value="large">Grande</option></select></label>
+          <label class="field"><span>Colore parole cantate</span>
+            <select id="k-sung"><option value="#ffd23f">Giallo</option><option value="#4fd1ff">Azzurro</option><option value="#ff7eb6">Rosa</option><option value="#7cff6b">Verde</option><option value="#ffa63d">Arancione</option></select></label>
+          <label class="field"><span>Colore pallina</span>
+            <select id="k-ball"><option value="#ff5a5f">Rossa</option><option value="#ffd23f">Gialla</option><option value="#ffffff">Bianca</option><option value="#4fd1ff">Azzurra</option></select></label>
+        </div>
+        <p class="hint">Sul video conviene la fascia scura: resta leggibile qualunque siano i colori della scena. Le impostazioni valgono anche per il file .ass (tranne la pallina).</p>
+      </details>
       <div class="toolbar">
         <button id="copy">Copia testo</button>
         <button id="dl-txt">TXT</button>
@@ -99,6 +128,6 @@
   </template>
 
   <!-- ?v=… va aggiornato a ogni rilascio (anche in js/app.js) per evitare file vecchi in cache -->
-  <script type="module" src="js/app.js?v=20261006c"></script>
+  <script type="module" src="js/app.js?v=20261006d"></script>
 </body>
 </html>
