@@ -59,6 +59,7 @@ function mergeFragments(lines, pause) {
     if (next && !/\s/.test(l.text) && next.start - l.end < pause * 2) {
       next.text = `${l.text} ${next.text}`;
       next.start = l.start;
+      next.words = [...l.words, ...next.words];
       continue;
     }
     out.push(l);
@@ -68,7 +69,8 @@ function mergeFragments(lines, pause) {
 
 function finish(line) {
   const text = line.words.map((w) => w.text).join(' ').replace(/\s+([,.!?;:])/g, '$1');
-  return { start: line.start, end: line.words[line.words.length - 1].end, text, uncertain: false };
+  const words = line.words.map(({ text, start, end }) => ({ text, start, end }));
+  return { start: line.start, end: words[words.length - 1].end, text, words, uncertain: false };
 }
 
 /**
@@ -107,12 +109,13 @@ function similarity(a, b) {
  */
 export function alignLyrics(lyricLines, words) {
   const ref = [];
-  lyricLines.forEach((line, li) => {
-    for (const t of line.split(/\s+/)) {
-      const n = norm(t);
-      if (n) ref.push({ n, li });
-    }
-  });
+  const tokens = lyricLines.map((line, li) =>
+    line.split(/\s+/).filter(Boolean).map((text) => {
+      const n = norm(text);
+      const tok = { text, ref: -1 };
+      if (n) { tok.ref = ref.length; ref.push({ n, li }); }
+      return tok;
+    }));
   const hyp = words.map((w) => norm(w.text));
   const R = ref.length, H = hyp.length;
   const GAP = -0.6;
@@ -159,7 +162,66 @@ export function alignLyrics(lyricLines, words) {
     if (strong[k]) line.uncertain = false;
   });
   fillGaps(lines);
+  lines.forEach((line, li) => {
+    const times = tokens[li].map((t) => (t.ref >= 0 && pairOf[t.ref] >= 0 ? words[pairOf[t.ref]] : null));
+    line.words = placeWords(tokens[li].map((t) => t.text), times, line.start, line.end);
+  });
   return lines;
+}
+
+/**
+ * Tempi delle singole parole di una riga: usa quelli riconosciuti dove ci sono,
+ * interpola gli altri tra i vicini (o tra inizio e fine riga), sempre in ordine crescente.
+ */
+function placeWords(texts, times, start, end) {
+  const n = texts.length;
+  if (!n) return [];
+  const st = new Array(n).fill(null);
+  const en = new Array(n).fill(null);
+  let last = start;
+  times.forEach((t, k) => {
+    if (t && t.start >= last - 0.05) { st[k] = Math.max(t.start, last); en[k] = Math.max(t.end, st[k]); last = st[k]; }
+  });
+  // estremi noti per interpolare
+  const anchors = [{ k: -1, t: start }];
+  st.forEach((v, k) => v != null && anchors.push({ k, t: v }));
+  const lastKnown = en.reduceRight((acc, v) => (acc == null && v != null ? v : acc), null);
+  anchors.push({ k: n, t: Math.max(end, lastKnown ?? start) });
+  for (let a = 0; a < anchors.length - 1; a++) {
+    const A = anchors[a], B = anchors[a + 1];
+    const gap = B.k - A.k;
+    for (let k = A.k + 1; k < B.k; k++) st[k] = A.t + ((B.t - A.t) * (k - A.k)) / gap;
+  }
+  return texts.map((text, k) => {
+    const nextStart = k + 1 < n ? st[k + 1] : Math.max(end, st[k]);
+    let e = en[k] ?? nextStart;
+    if (e > nextStart) e = nextStart;
+    if (e <= st[k]) e = Math.min(st[k] + 0.3, Math.max(nextStart, st[k] + 0.05));
+    return { text, start: st[k], end: e };
+  });
+}
+
+/** Distribuisce le parole di un testo tra start ed end in proporzione alla lunghezza. */
+export function distributeWords(text, start, end) {
+  const texts = text.split(/\s+/).filter(Boolean);
+  const weights = texts.map((t) => Math.max(1, norm(t).length));
+  const total = weights.reduce((a, b) => a + b, 0) || 1;
+  const span = Math.max(0.3 * texts.length, end - start);
+  let t = start;
+  return texts.map((w, k) => {
+    const d = (span * weights[k]) / total;
+    const word = { text: w, start: t, end: t + d };
+    t += d;
+    return word;
+  });
+}
+
+/** Sposta tutte le parole della riga quando cambia il suo inizio. */
+export function shiftWords(line, newStart) {
+  const delta = newStart - line.start;
+  line.start = newStart;
+  line.end += delta;
+  for (const w of line.words || []) { w.start += delta; w.end += delta; }
 }
 
 /** Interpola i tempi mancanti e garantisce che siano crescenti. */
@@ -182,6 +244,9 @@ function fillGaps(lines) {
   }
   for (let k = 0; k < n; k++) {
     const next = k + 1 < n ? lines[k + 1].start : null;
-    if (lines[k].end == null || lines[k].end <= lines[k].start) lines[k].end = next ?? lines[k].start + 3;
+    if (lines[k].end == null || lines[k].end <= lines[k].start) {
+      const guess = lines[k].start + Math.max(2, 0.45 * lines[k].text.split(/\s+/).length);
+      lines[k].end = next != null ? Math.min(next, guess) : guess;
+    }
   }
 }

@@ -63,11 +63,16 @@
 
     <section class="card" id="result" hidden>
       <div class="player" id="player"></div>
+      <div class="karaoke" id="karaoke" aria-live="off">
+        <p class="k-cur" id="k-cur"></p>
+        <p class="k-next" id="k-next"></p>
+      </div>
       <div class="toolbar">
         <button id="copy">Copia testo</button>
         <button id="dl-txt">TXT</button>
         <button id="dl-lrc">LRC</button>
         <button id="dl-srt">SRT</button>
+        <button id="dl-ass" title="Sottotitoli karaoke: parole che si colorano (VLC, Aegisub, ffmpeg)">Karaoke (.ass)</button>
       </div>
       <p class="hint">Tocca ▶ per ascoltare da quella riga. I tempi si modificano a mano (es. 1:03.4). Usa <b>⏱</b> durante la riproduzione per fissare l'inizio della riga al punto attuale. Le righe <span class="warn-dot"></span> sono da controllare.</p>
       <ol class="lines" id="lines"></ol>
@@ -91,6 +96,6 @@
   </template>
 
   <!-- ?v=… va aggiornato a ogni rilascio (anche in js/app.js) per evitare file vecchi in cache -->
-  <script type="module" src="js/app.js?v=20261006"></script>
+  <script type="module" src="js/app.js?v=20261006b"></script>
 </body>
 </html>

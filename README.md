@@ -15,7 +15,8 @@ Tutto gira **nel browser** (Whisper tramite [Transformers.js](https://github.com
 - Modelli: **Automatico** (base se c'è il testo, small altrimenti), **Preciso** (whisper-small, ~250 MB), **Veloce** (whisper-base, ~80 MB). Il download avviene solo la prima volta, poi resta in cache.
 - **Testo noto (consigliato)**: se incolli il testo (anche con i tempi già scritti, che vengono ignorati) — o se l'mp3 lo contiene già nei metadati, come i file di Suno — l'app usa le tue parole esatte e calcola solo i tempi. È la modalità più affidabile.
 - Editor: ascolto da ogni riga, modifica di tempo e testo, ⏱ per fissare l'inizio al punto di riproduzione, unione ed eliminazione righe. Le righe incerte sono evidenziate.
-- Export: TXT nel formato `(m:ss) testo`, **LRC** (testi sincronizzati), **SRT** (sottotitoli).
+- **Anteprima karaoke**: sotto il player la riga corrente si colora parola per parola, con la riga successiva in grigio.
+- Export: TXT nel formato `(m:ss) testo`, **LRC** (testi sincronizzati), **SRT** (sottotitoli), **ASS karaoke** (parole che si colorano; si apre con VLC o Aegisub, o si incide nel video con `ffmpeg -i video.mp4 -vf ass=canzone.ass out.mp4`).
 
 ## Precisione e velocità misurate
 
@@ -36,7 +37,7 @@ Con il testo il modello base basta: per questo "Automatico" lo sceglie quando il
 
 - Il modello **Veloce (base)** è incluso nel sito (cartella `models/`, ~77 MB): funziona anche se Hugging Face blocca il download. Il modello **Preciso (small)** viene ancora scaricato da Hugging Face.
 
-- Il riconoscimento del cantato sopra la musica non è perfetto: senza testo fornito aspettati parole sbagliate (es. nomi propri, parole stirate). I **tempi** sono in genere precisi entro ~0,5 s.
+- Il riconoscimento del cantato sopra la musica non è perfetto: senza testo fornito aspettati parole sbagliate (es. nomi propri, parole stirate). I **tempi delle righe** sono in genere precisi entro ~0,5 s; la precisione delle **singole parole** non è ancora stata misurata.
 - Formati video come mkv/avi dipendono dal browser.
 
 ## Sviluppo

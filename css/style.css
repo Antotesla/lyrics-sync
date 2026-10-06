@@ -90,6 +90,19 @@ progress { width: 100%; }
 
 .player audio, .player video { width: 100%; border-radius: 10px; display: block; }
 .player video { max-height: 50vh; background: #000; }
+.karaoke {
+  margin-top: 10px; padding: 18px 16px; border-radius: 12px; text-align: center;
+  background: #14161c; min-height: 6.5em;
+  --k-todo: #f2f2f2; --k-done: #ffc83d;
+}
+.karaoke p { margin: 0; line-height: 1.35; }
+.k-cur { font-size: clamp(1.15rem, 3.2vw, 1.6rem); font-weight: 700; }
+.k-next { margin-top: 8px !important; font-size: clamp(0.95rem, 2.4vw, 1.15rem); color: #8b8f99; }
+.k-word {
+  --p: 0;
+  background: linear-gradient(90deg, var(--k-done) calc(var(--p) * 100%), var(--k-todo) calc(var(--p) * 100%));
+  -webkit-background-clip: text; background-clip: text; color: transparent;
+}
 .toolbar { display: flex; gap: 8px; flex-wrap: wrap; margin: 12px 0; }
 
 .lines { list-style: none; margin: 0; padding: 0; }

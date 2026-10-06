@@ -48,3 +48,54 @@ export function toSrt(lines) {
     return `${i + 1}\n${srtTime(l.start)} --> ${srtTime(end)}\n${l.text}\n`;
   }).join('\n');
 }
+
+// ---------- Sottotitoli karaoke (ASS) ----------
+
+function assTime(sec) {
+  const cs = Math.max(0, Math.round(sec * 100));
+  return `${Math.floor(cs / 360000)}:${pad(Math.floor(cs / 6000) % 60)}:${pad(Math.floor(cs / 100) % 60)}.${pad(cs % 100)}`;
+}
+
+const assEscape = (s) => s.replace(/[{}]/g, '').replace(/\\/g, '');
+
+/**
+ * File .ass con effetto karaoke: ogni parola si colora mentre viene cantata (\kf).
+ * Ogni riga compare poco prima della prima parola e resta fino all'inizio della successiva.
+ */
+export function toAss(lines, title = '') {
+  const LEAD = 0.6; // secondi di anticipo con cui compare la riga
+  const head = `[Script Info]
+Title: ${assEscape(title)}
+ScriptType: v4.00+
+PlayResX: 1280
+PlayResY: 720
+WrapStyle: 0
+ScaledBorderAndShadow: yes
+
+[V4+ Styles]
+Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding
+Style: Karaoke,Arial,56,&H0000D7FF,&H00FFFFFF,&H00000000,&H80000000,-1,0,0,0,100,100,0,0,1,3,1,2,60,60,70,1
+
+[Events]
+Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
+`;
+  const events = lines.map((l, i) => {
+    const words = l.words?.length ? l.words : [{ text: l.text, start: l.start, end: l.end ?? l.start + 2 }];
+    const prevEnd = i > 0 ? (lines[i - 1].words?.at(-1)?.end ?? lines[i - 1].start) : 0;
+    const show = Math.max(prevEnd, words[0].start - LEAD, 0);
+    const next = lines[i + 1];
+    const lastEnd = words[words.length - 1].end;
+    const hide = Math.max(lastEnd + 0.3, next ? Math.min(next.start, lastEnd + 2) : lastEnd + 2);
+    let t = show;
+    let text = '';
+    for (const w of words) {
+      const gap = Math.round((w.start - t) * 100);
+      if (gap > 0) text += `{\\k${gap}}`;
+      const dur = Math.max(1, Math.round((w.end - Math.max(w.start, t)) * 100));
+      text += `{\\kf${dur}}${assEscape(w.text)} `;
+      t = Math.max(w.start, t) + dur / 100;
+    }
+    return `Dialogue: 0,${assTime(show)},${assTime(hide)},Karaoke,,0,0,0,,${text.trim()}`;
+  });
+  return head + events.join('\n') + '\n';
+}

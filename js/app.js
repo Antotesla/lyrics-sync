@@ -1,7 +1,7 @@
-import { decodeToMono16k } from './audio.js?v=20261006';
-import { readId3Lyrics } from './id3.js?v=20261006';
-import { normalizeWords, groupWords, parseLyrics, alignLyrics } from './lines.js?v=20261006';
-import { formatShort, formatPrecise, parseTime, toTxt, toLrc, toSrt } from './formats.js?v=20261006';
+import { decodeToMono16k } from './audio.js?v=20261006b';
+import { readId3Lyrics } from './id3.js?v=20261006b';
+import { normalizeWords, groupWords, parseLyrics, alignLyrics, distributeWords, shiftWords } from './lines.js?v=20261006b';
+import { formatShort, formatPrecise, parseTime, toTxt, toLrc, toSrt, toAss } from './formats.js?v=20261006b';
 
 const $ = (id) => document.getElementById(id);
 const els = {
@@ -74,7 +74,7 @@ function pickModel(hasLyrics) {
 }
 
 function runWhisper(audio, model) {
-  worker ??= new Worker(new URL('./worker.js?v=20261006', import.meta.url), { type: 'module' });
+  worker ??= new Worker(new URL('./worker.js?v=20261006b', import.meta.url), { type: 'module' });
   const files = {};
   const started = performance.now();
   return new Promise((resolve, reject) => {
@@ -116,17 +116,29 @@ function showProgress(fraction) {
 
 function showResult() {
   const url = URL.createObjectURL(state.file);
-  const isVideo = state.file.type.startsWith('video/');
   els.player.innerHTML = '';
-  state.media = document.createElement(isVideo ? 'video' : 'audio');
-  state.media.controls = true;
-  state.media.playsInline = true;
-  state.media.src = url;
-  state.media.addEventListener('timeupdate', highlightCurrent);
-  els.player.append(state.media);
+  setMedia(state.file.type.startsWith('video/') ? 'video' : 'audio', url);
+  // Alcuni audio arrivano come "video/…" (es. file .mpeg): se non c'è immagine usiamo il player audio
+  if (state.media.tagName === 'VIDEO') {
+    state.media.addEventListener('loadedmetadata', () => {
+      if (!state.media.videoWidth) setMedia('audio', url);
+    }, { once: true });
+  }
   els.result.hidden = false;
   renderLines();
   els.result.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+function setMedia(kind, url) {
+  const media = document.createElement(kind);
+  media.controls = true;
+  media.playsInline = true;
+  media.src = url;
+  media.addEventListener('timeupdate', highlightCurrent);
+  media.addEventListener('play', karaokeLoop);
+  media.addEventListener('seeked', drawKaraoke);
+  els.player.replaceChildren(media);
+  state.media = media;
 }
 
 function renderLines() {
@@ -140,6 +152,7 @@ function renderLines() {
     els.lines.append(li);
   });
   highlightCurrent();
+  drawKaraoke(true);
 }
 
 els.lines.addEventListener('click', (e) => {
@@ -150,13 +163,14 @@ els.lines.addEventListener('click', (e) => {
   if (e.target.matches('.play')) {
     seek(line.start);
   } else if (e.target.matches('.stamp')) {
-    line.start = state.media.currentTime;
+    shiftWords(line, state.media.currentTime);
     line.uncertain = false;
     resort();
   } else if (e.target.matches('.merge') && i > 0) {
     const prev = state.lines[i - 1];
     prev.text = `${prev.text} ${line.text}`.trim();
     prev.end = line.end;
+    prev.words = [...(prev.words || []), ...(line.words || [])];
     state.lines.splice(i, 1);
     renderLines();
   } else if (e.target.matches('.del')) {
@@ -173,11 +187,19 @@ els.lines.addEventListener('focusout', (e) => {
     const t = parseTime(e.target.value);
     if (t == null) { e.target.value = formatPrecise(line.start); return; }
     if (Math.abs(t - line.start) < 0.05) return;
-    line.start = t;
+    shiftWords(line, t);
     line.uncertain = false;
     resort();
   } else if (e.target.matches('.text')) {
+    if (e.target.value === line.text) return;
+    const texts = e.target.value.split(/\s+/).filter(Boolean);
     line.text = e.target.value;
+    if (line.words && texts.length === line.words.length) {
+      texts.forEach((t, k) => { line.words[k].text = t; }); // stesse parole corrette: tempi invariati
+    } else {
+      line.words = distributeWords(line.text, line.start, line.end ?? line.start + 2);
+    }
+    drawKaraoke(true);
   }
 });
 els.lines.addEventListener('keydown', (e) => {
@@ -186,7 +208,7 @@ els.lines.addEventListener('keydown', (e) => {
 
 $('add-line').addEventListener('click', () => {
   const t = state.media ? state.media.currentTime : 0;
-  state.lines.push({ start: t, end: t + 3, text: '', uncertain: false });
+  state.lines.push({ start: t, end: t + 3, text: '', words: [], uncertain: false });
   resort();
   const idx = state.lines.findIndex((l) => l.start === t && l.text === '');
   els.lines.children[idx]?.querySelector('.text').focus();
@@ -211,6 +233,46 @@ function highlightCurrent() {
   [...els.lines.children].forEach((li, i) => li.classList.toggle('active', i === cur));
 }
 
+// ---------- Anteprima karaoke ----------
+
+let kLine = -2;
+
+function karaokeLoop() {
+  drawKaraoke();
+  if (state.media && !state.media.paused) requestAnimationFrame(karaokeLoop);
+}
+
+function drawKaraoke(force = false) {
+  if (!state.media) return;
+  const t = state.media.currentTime;
+  // riga corrente = ultima iniziata; mostrata in anticipo di 0,6 s come nel file .ass
+  let cur = -1;
+  state.lines.forEach((l, i) => { if ((l.words?.[0]?.start ?? l.start) - 0.6 <= t) cur = i; });
+  if (cur !== kLine || force) {
+    kLine = cur;
+    const curEl = $('k-cur');
+    curEl.replaceChildren();
+    const line = state.lines[cur];
+    if (line) {
+      const words = line.words?.length ? line.words : distributeWords(line.text, line.start, line.end ?? line.start + 2);
+      words.forEach((w, k) => {
+        const span = document.createElement('span');
+        span.className = 'k-word';
+        span.textContent = w.text;
+        span.dataset.s = w.start;
+        span.dataset.e = w.end;
+        curEl.append(span, k < words.length - 1 ? ' ' : '');
+      });
+    }
+    $('k-next').textContent = state.lines[cur + 1]?.text || '';
+  }
+  for (const span of $('k-cur').children) {
+    const s = Number(span.dataset.s), e = Number(span.dataset.e);
+    const p = t <= s ? 0 : t >= e ? 1 : (t - s) / (e - s);
+    span.style.setProperty('--p', p.toFixed(3));
+  }
+}
+
 // ---------- Export ----------
 
 const cleanLines = () => state.lines.filter((l) => l.text.trim());
@@ -226,6 +288,7 @@ $('copy').addEventListener('click', async () => {
 $('dl-txt').addEventListener('click', () => download(toTxt(cleanLines()), 'txt'));
 $('dl-lrc').addEventListener('click', () => download(toLrc(cleanLines(), state.baseName), 'lrc'));
 $('dl-srt').addEventListener('click', () => download(toSrt(cleanLines()), 'srt'));
+$('dl-ass').addEventListener('click', () => download(toAss(cleanLines(), state.baseName), 'ass'));
 
 function download(text, ext) {
   const a = document.createElement('a');
