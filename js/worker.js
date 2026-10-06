@@ -1,10 +1,42 @@
 // Web Worker: esegue Whisper nel browser con Transformers.js, così l'interfaccia resta reattiva.
 import { pipeline, env } from 'https://cdn.jsdelivr.net/npm/@huggingface/transformers@3.8.1';
 
-// Il modello base è ospitato insieme all'app (models/): così funziona anche se Hugging Face
-// rifiuta il download (403). Gli altri modelli arrivano da Hugging Face.
+// I modelli sono ospitati insieme all'app (models/): così funziona anche se Hugging Face
+// rifiuta il download (403). Hugging Face resta come riserva.
 env.allowLocalModels = true;
 env.localModelPath = new URL('../models/', import.meta.url).href;
+
+// File del modello più grandi del limite di GitHub (100 MB): nel sito sono divisi in parti
+// (nome.part1, nome.part2, …) e qui vengono riuniti in streaming, come se fossero un file unico.
+const SPLIT_FILES = { 'Xenova/whisper-small/onnx/decoder_model_merged_quantized.onnx': 2 };
+const originalFetch = self.fetch.bind(self);
+self.fetch = async (input, init) => {
+  const url = typeof input === 'string' ? input : input.url;
+  const name = Object.keys(SPLIT_FILES).find((k) => url === env.localModelPath + k);
+  if (!name) return originalFetch(input, init);
+  const parts = await Promise.all(
+    Array.from({ length: SPLIT_FILES[name] }, (_, i) => originalFetch(`${url}.part${i + 1}`)),
+  );
+  const bad = parts.find((r) => !r.ok);
+  if (bad) return new Response(null, { status: bad.status, statusText: bad.statusText });
+  const total = parts.reduce((sum, r) => sum + Number(r.headers.get('content-length') || 0), 0);
+  const body = new ReadableStream({
+    async start(controller) {
+      for (const r of parts) {
+        const reader = r.body.getReader();
+        for (;;) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          controller.enqueue(value);
+        }
+      }
+      controller.close();
+    },
+  });
+  const headers = { 'content-type': 'application/octet-stream' };
+  if (total) headers['content-length'] = String(total);
+  return new Response(body, { status: 200, headers });
+};
 
 const SAMPLE_RATE = 16000;
 const WINDOW = 30; // secondi: la finestra nativa di Whisper
@@ -63,8 +95,9 @@ async function transcribeLongForm(audio, language) {
       const [s, e] = c.timestamp || [];
       if (s == null) continue;
       const wEnd = e ?? s + 0.5;
+      if (pos + s >= duration - 0.05) break; // parola "inventata" oltre la fine dell'audio
       if (!isLast && wEnd > end - pos - EDGE) break; // parola forse tagliata: la rilegge la finestra dopo
-      words.push({ text: c.text, timestamp: [pos + s, pos + wEnd] });
+      words.push({ text: c.text, timestamp: [pos + s, Math.min(duration, pos + wEnd)] });
       lastEnd = pos + wEnd;
     }
     if (isLast) break;

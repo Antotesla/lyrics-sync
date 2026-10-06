@@ -56,3 +56,13 @@ test('dropLoops toglie le frasi ripetute in loop ma lascia le ripetizioni normal
   const normal = dropLoops(ws('piove, piove, il fiore splash, splash'));
   assert.equal(normal.length, 6);
 });
+
+test('alignLyrics scarta una parola abbinata molto più avanti delle altre (es. oltre la fine)', () => {
+  const words = normalizeWords([
+    w(' uno', 10, 10.4), w(' due', 10.5, 10.9), w(' tre', 11, 11.4), w(' quattro', 41, 41.5),
+  ]);
+  const [line] = alignLyrics(['uno due tre quattro'], words);
+  const last = line.words.at(-1);
+  assert.ok(last.start < 13, `ultima parola a ${last.start}`);
+  assert.ok(line.end < 13);
+});

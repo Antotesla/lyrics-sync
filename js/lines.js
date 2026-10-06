@@ -171,6 +171,8 @@ export function alignLyrics(lyricLines, words) {
     else j--;
   }
 
+  dropOutlierPairs(pairOf, ref, words);
+
   const lines = lyricLines.map((text) => ({ start: null, end: null, text, uncertain: true }));
   ref.forEach((r, k) => {
     const line = lines[r.li];
@@ -245,6 +247,25 @@ export function shiftWords(line, newStart) {
   line.start = newStart;
   line.end += delta;
   for (const w of line.words || []) { w.start += delta; w.end += delta; }
+}
+
+/**
+ * Scarta gli abbinamenti incoerenti: una parola del testo collegata a una parola riconosciuta
+ * molto più avanti delle precedenti (es. 30 s dopo, oltre la fine della canzone) o che torna indietro.
+ * Quelle parole vengono poi stimate dalle vicine.
+ */
+function dropOutlierPairs(pairOf, ref, words, maxJump = 5) {
+  let last = null; // ultimo tempo accettato
+  let lastLine = -1;
+  for (let k = 0; k < ref.length; k++) {
+    if (pairOf[k] < 0) continue;
+    const t = words[pairOf[k]].start;
+    // nello stesso verso le parole sono vicine; tra versi diversi può esserci una pausa strumentale
+    const jump = ref[k].li === lastLine ? maxJump : maxJump * 6;
+    if (last != null && (t - last > jump || t < last - 0.5)) { pairOf[k] = -1; continue; }
+    last = t;
+    lastLine = ref[k].li;
+  }
 }
 
 /** Interpola i tempi mancanti e garantisce che siano crescenti. */

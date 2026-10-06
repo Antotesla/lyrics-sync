@@ -29,9 +29,8 @@
         <label class="field">
           <span>Modello</span>
           <select id="model">
-            <option value="auto" selected>Automatico (veloce se c'è il testo)</option>
-            <option value="Xenova/whisper-small">Preciso (small · ~250 MB)</option>
-            <option value="Xenova/whisper-base">Veloce (base · ~80 MB)</option>
+            <option value="auto" selected>Automatico (preciso, ~2-3 min)</option>
+            <option value="Xenova/whisper-base">Veloce (meno preciso sui tempi delle parole, ~1 min)</option>
           </select>
         </label>
         <label class="field">
@@ -143,6 +142,6 @@
   <!-- ?v=… va aggiornato a ogni rilascio (anche in js/app.js) per evitare file vecchi in cache -->
   <!-- fix-webm-duration 1.0.6 (MIT, Yury Sitnikov): aggiunge la durata ai WebM registrati dal browser -->
   <script src="js/vendor/fix-webm-duration.js"></script>
-  <script type="module" src="js/app.js?v=20261006g"></script>
+  <script type="module" src="js/app.js?v=20261006h"></script>
 </body>
 </html>

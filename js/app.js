@@ -1,8 +1,8 @@
-import { decodeToMono16k } from './audio.js?v=20261006g';
-import { readId3Lyrics } from './id3.js?v=20261006g';
-import { normalizeWords, groupWords, parseLyrics, alignLyrics, distributeWords, shiftWords } from './lines.js?v=20261006g';
-import { formatShort, formatPrecise, parseTime, toTxt, toLrc, toSrt, toAss } from './formats.js?v=20261006g';
-import { createKaraoke, DEFAULT_OPTIONS } from './karaoke.js?v=20261006g';
+import { decodeToMono16k } from './audio.js?v=20261006h';
+import { readId3Lyrics } from './id3.js?v=20261006h';
+import { normalizeWords, groupWords, parseLyrics, alignLyrics, distributeWords, shiftWords } from './lines.js?v=20261006h';
+import { formatShort, formatPrecise, parseTime, toTxt, toLrc, toSrt, toAss } from './formats.js?v=20261006h';
+import { createKaraoke, DEFAULT_OPTIONS } from './karaoke.js?v=20261006h';
 
 const $ = (id) => document.getElementById(id);
 const els = {
@@ -73,14 +73,14 @@ async function transcribe() {
     showProgress(null);
     const { audio } = await decodeToMono16k(await state.file.arrayBuffer());
     const lyricLines = parseLyrics(els.lyrics.value);
-    const model = pickModel(lyricLines.length > 0);
+    const model = pickModel();
     let chunks;
     try {
       chunks = await runWhisper(audio.slice(), model);
     } catch (err) {
       // In automatico, se Hugging Face blocca il modello preciso, si usa quello veloce incluso nel sito
-      if (err.code !== 'blocked' || els.model.value !== 'auto' || model === FALLBACK_MODEL) throw err;
-      fallbackNote = ' Il modello preciso non si è potuto scaricare (Hugging Face lo blocca): ho usato quello veloce.';
+      if (els.model.value !== 'auto' || model === FALLBACK_MODEL) throw err;
+      fallbackNote = ' Il modello preciso non si è potuto usare: ho usato quello veloce.';
       chunks = await runWhisper(audio, FALLBACK_MODEL);
     }
     const words = normalizeWords(chunks);
@@ -97,14 +97,14 @@ async function transcribe() {
   }
 }
 
-// Con il testo noto servono solo i tempi: il modello base è preciso quanto small e ~3 volte più veloce
-function pickModel(hasLyrics) {
-  if (els.model.value !== 'auto') return els.model.value;
-  return hasLyrics ? FALLBACK_MODEL : 'Xenova/whisper-small';
+// Automatico = small: anche con il testo noto dà tempi delle parole più affidabili del base
+// (misurato: meno parole stimate, nessuna parola oltre la fine). Se non si carica, si ripiega sul base.
+function pickModel() {
+  return els.model.value === 'auto' ? 'Xenova/whisper-small' : els.model.value;
 }
 
 function runWhisper(audio, model) {
-  worker ??= new Worker(new URL('./worker.js?v=20261006g', import.meta.url), { type: 'module' });
+  worker ??= new Worker(new URL('./worker.js?v=20261006h', import.meta.url), { type: 'module' });
   const files = {};
   const started = performance.now();
   return new Promise((resolve, reject) => {
