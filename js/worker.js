@@ -1,6 +1,6 @@
 // Web Worker: esegue Whisper nel browser con Transformers.js, così l'interfaccia resta reattiva.
 import { pipeline, env } from 'https://cdn.jsdelivr.net/npm/@huggingface/transformers@3.8.1';
-import { transcribeLongForm } from './longform.js?v=20261006m';
+import { transcribeLongForm } from './longform.js?v=20261006n';
 
 // I modelli sono ospitati insieme all'app (models/): così funziona anche se Hugging Face
 // rifiuta il download (403). Hugging Face resta come riserva.
