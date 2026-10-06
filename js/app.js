@@ -1,7 +1,7 @@
-import { decodeToMono16k } from './audio.js';
-import { readId3Lyrics } from './id3.js';
-import { normalizeWords, groupWords, parseLyrics, alignLyrics } from './lines.js';
-import { formatShort, formatPrecise, parseTime, toTxt, toLrc, toSrt } from './formats.js';
+import { decodeToMono16k } from './audio.js?v=20261006';
+import { readId3Lyrics } from './id3.js?v=20261006';
+import { normalizeWords, groupWords, parseLyrics, alignLyrics } from './lines.js?v=20261006';
+import { formatShort, formatPrecise, parseTime, toTxt, toLrc, toSrt } from './formats.js?v=20261006';
 
 const $ = (id) => document.getElementById(id);
 const els = {
@@ -74,7 +74,7 @@ function pickModel(hasLyrics) {
 }
 
 function runWhisper(audio, model) {
-  worker ??= new Worker(new URL('./worker.js', import.meta.url), { type: 'module' });
+  worker ??= new Worker(new URL('./worker.js?v=20261006', import.meta.url), { type: 'module' });
   const files = {};
   const started = performance.now();
   return new Promise((resolve, reject) => {
