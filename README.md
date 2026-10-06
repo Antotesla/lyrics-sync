@@ -34,6 +34,8 @@ Con il testo il modello base basta: per questo "Automatico" lo sceglie quando il
 
 ## Limiti
 
+- Il modello **Veloce (base)** è incluso nel sito (cartella `models/`, ~77 MB): funziona anche se Hugging Face blocca il download. Il modello **Preciso (small)** viene ancora scaricato da Hugging Face.
+
 - Il riconoscimento del cantato sopra la musica non è perfetto: senza testo fornito aspettati parole sbagliate (es. nomi propri, parole stirate). I **tempi** sono in genere precisi entro ~0,5 s.
 - Formati video come mkv/avi dipendono dal browser.
 

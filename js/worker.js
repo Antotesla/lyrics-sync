@@ -1,7 +1,10 @@
 // Web Worker: esegue Whisper nel browser con Transformers.js, così l'interfaccia resta reattiva.
 import { pipeline, env } from 'https://cdn.jsdelivr.net/npm/@huggingface/transformers@3.8.1';
 
-env.allowLocalModels = false;
+// Il modello base è ospitato insieme all'app (models/): così funziona anche se Hugging Face
+// rifiuta il download (403). Gli altri modelli arrivano da Hugging Face.
+env.allowLocalModels = true;
+env.localModelPath = new URL('../models/', import.meta.url).href;
 
 const SAMPLE_RATE = 16000;
 const WINDOW = 30; // secondi: la finestra nativa di Whisper
@@ -28,7 +31,11 @@ self.onmessage = async ({ data }) => {
     const words = await transcribeLongForm(data.audio, data.language || null);
     self.postMessage({ type: 'result', chunks: words });
   } catch (err) {
-    self.postMessage({ type: 'error', message: String(err?.message || err) });
+    let message = String(err?.message || err);
+    if (/Forbidden access|403/.test(message)) {
+      message = 'Hugging Face ha rifiutato il download del modello (403). Scegli il modello "Veloce", che è incluso nell\'app.';
+    }
+    self.postMessage({ type: 'error', message });
   }
 };
 
