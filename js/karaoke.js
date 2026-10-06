@@ -3,8 +3,11 @@
 // Il disegno dipende solo dal tempo t (e dalle opzioni): lo stesso codice serve all'anteprima
 // e all'export video. Può disegnare su uno sfondo proprio o sopra un video esistente.
 
-export const WIDTH = 1280;
-export const HEIGHT = 720;
+// Dimensioni dell'area di disegno: seguono il canvas (quindi il formato del video, anche verticale).
+// K = fattore di scala rispetto al riferimento 1280x720.
+let W = 1280;
+let H = 720;
+let K = 1;
 export const LEAD = 0.6; // anticipo con cui una riga diventa "corrente" (come nel file .ass)
 
 const FONT_FAMILY = '"Baloo 2", "Arial Rounded MT Bold", "Trebuchet MS", system-ui, sans-serif';
@@ -45,20 +48,24 @@ export function lineIndexAt(lines, t) {
  * Posizione della pallina: atterra su ogni parola all'inizio della parola e salta verso la successiva.
  * `anchors` = [{x, y, start}] (y = dove appoggia la pallina sopra la parola).
  */
-export function ballAt(anchors, t) {
+export function ballAt(anchors, t, from = null, hopMax = BALL_HOP) {
   if (!anchors.length) return null;
   const first = anchors[0];
-  if (t < first.start - LEAD) return null;
   if (t < first.start) {
-    // entrata da sinistra con un salto verso la prima parola
-    const u = clamp01((t - (first.start - LEAD)) / LEAD);
-    return { x: first.x - 140 * (1 - u), y: first.y - BALL_HOP * Math.sin(Math.PI * u) };
+    // Salto verso la prima parola: parte dall'ultima parola della riga precedente (se c'è),
+    // altrimenti entra da sinistra. Prima del salto resta ferma sulla parola precedente.
+    const start = from ? Math.max(from.start, first.start - LEAD * 1.5) : first.start - LEAD;
+    if (t < start) return from ? { x: from.x, y: from.y } : null;
+    const x0 = from ? from.x : first.x - 140;
+    const y0 = from ? from.y : first.y;
+    const u = clamp01((t - start) / Math.max(0.05, first.start - start));
+    return { x: x0 + (first.x - x0) * u, y: y0 + (first.y - y0) * u - hopMax * Math.sin(Math.PI * u) };
   }
   for (let k = 0; k < anchors.length - 1; k++) {
     const a = anchors[k], b = anchors[k + 1];
     if (t < b.start) {
       const u = clamp01((t - a.start) / Math.max(0.05, b.start - a.start));
-      const hop = Math.min(BALL_HOP, 25 + Math.abs(b.x - a.x) * 0.35);
+      const hop = Math.min(hopMax, (hopMax / BALL_HOP) * 25 + Math.abs(b.x - a.x) * 0.35);
       return { x: a.x + (b.x - a.x) * u, y: a.y + (b.y - a.y) * u - hop * Math.sin(Math.PI * u) };
     }
   }
@@ -77,8 +84,9 @@ export function bandRect(o, size, curRows) {
   const ballRoom = size * 0.95;
   const pad = size * 0.3;
   const height = ballRoom + curRows * row + o.nextLines * (row * SMALL + gap) + pad;
-  const top = o.position === 'top' ? MARGIN : o.position === 'center' ? (HEIGHT - height) / 2 : HEIGHT - MARGIN - height;
-  return { x: MARGIN * 2, y: top, width: WIDTH - MARGIN * 4, height, currentTop: top + ballRoom };
+  const m = MARGIN * K;
+  const top = o.position === 'top' ? m : o.position === 'center' ? (H - height) / 2 : H - m - height;
+  return { x: m * 2, y: top, width: W - m * 4, height, currentTop: top + ballRoom };
 }
 
 /** Crea il renderer per un canvas 2D. */
@@ -89,7 +97,7 @@ export function createKaraoke(ctx) {
   // Divide la riga in righe-video che stanno nella larghezza e misura ogni parola
   function layout(line, size, maxWidth) {
     const words = line.words?.length ? line.words : [{ text: line.text, start: line.start, end: line.end ?? line.start + 2 }];
-    const key = `${size}/${maxWidth}/` + words.map((w) => `${w.text}@${w.start.toFixed(2)}-${w.end.toFixed(2)}`).join('|');
+    const key = `${W}/${size}/${maxWidth}/` + words.map((w) => `${w.text}@${w.start.toFixed(2)}-${w.end.toFixed(2)}`).join('|');
     const hit = cache.get(line);
     if (hit && hit.key === key) return hit;
     ctx.font = font(size);
@@ -105,7 +113,7 @@ export function createKaraoke(ctx) {
     const placed = [];
     rows.forEach((row, r) => {
       const total = row.reduce((s, w) => s + w.width, 0) + space * (row.length - 1);
-      let x = (WIDTH - total) / 2;
+      let x = (W - total) / 2;
       for (const w of row) { placed.push({ ...w, x, row: r }); x += w.width + space; }
     });
     const result = { key, words: placed, rows: rows.length, height: rows.length * size * 1.18 };
@@ -114,22 +122,22 @@ export function createKaraoke(ctx) {
   }
 
   function drawSky() {
-    const g = ctx.createLinearGradient(0, 0, 0, HEIGHT);
+    const g = ctx.createLinearGradient(0, 0, 0, H);
     g.addColorStop(0, SKY.top);
     g.addColorStop(1, SKY.bottom);
     ctx.fillStyle = g;
-    ctx.fillRect(0, 0, WIDTH, HEIGHT);
+    ctx.fillRect(0, 0, W, H);
   }
 
   // Video intero senza tagli (bande nere se il formato non è 16:9)
   function drawVideo(video) {
     ctx.fillStyle = '#000';
-    ctx.fillRect(0, 0, WIDTH, HEIGHT);
+    ctx.fillRect(0, 0, W, H);
     const vw = video.videoWidth, vh = video.videoHeight;
     if (!vw || !vh || video.readyState < 2) return;
-    const k = Math.min(WIDTH / vw, HEIGHT / vh);
+    const k = Math.min(W / vw, H / vh);
     const w = vw * k, h = vh * k;
-    ctx.drawImage(video, (WIDTH - w) / 2, (HEIGHT - h) / 2, w, h);
+    ctx.drawImage(video, (W - w) / 2, (H - h) / 2, w, h);
   }
 
   function roundRect(x, y, w, h, r) {
@@ -147,9 +155,9 @@ export function createKaraoke(ctx) {
     ctx.save();
     ctx.globalAlpha = alpha;
     // scala attorno al centro orizzontale della riga
-    ctx.translate(WIDTH / 2, top);
+    ctx.translate(W / 2, top);
     ctx.scale(scale, scale);
-    ctx.translate(-WIDTH / 2, 0);
+    ctx.translate(-W / 2, 0);
     ctx.font = font(size);
     ctx.textBaseline = 'alphabetic';
     ctx.lineJoin = 'round';
@@ -181,16 +189,20 @@ export function createKaraoke(ctx) {
     ctx.restore();
   }
 
-  function drawBall(lay, top, t, scale, size, color) {
-    // stesse coordinate della riga disegnata (scalata attorno al centro orizzontale)
+  // punti di appoggio della pallina sopra le parole (stesse coordinate della riga disegnata)
+  function anchorsOf(lay, top, scale, size) {
     const row = size * 1.18;
     const r = BALL_R * (size / 60);
-    const anchors = lay.words.map((w) => ({
-      x: WIDTH / 2 + (w.x + w.width / 2 - WIDTH / 2) * scale,
+    return lay.words.map((w) => ({
+      x: W / 2 + (w.x + w.width / 2 - W / 2) * scale,
       y: top + (w.row * row + size * 0.24) * scale - r - 2, // appena sopra le lettere
       start: w.start,
     }));
-    const b = ballAt(anchors, t);
+  }
+
+  function drawBall(anchors, from, t, size, color) {
+    const r = BALL_R * (size / 60);
+    const b = ballAt(anchors, t, from, BALL_HOP * K);
     if (!b) return;
     ctx.save();
     ctx.shadowColor = 'rgba(0, 0, 0, 0.5)';
@@ -212,10 +224,14 @@ export function createKaraoke(ctx) {
   /** Disegna il frame al tempo t (secondi). `opts`: vedi DEFAULT_OPTIONS, più `video`. */
   function draw(lines, t, opts = {}) {
     const o = { ...DEFAULT_OPTIONS, ...opts };
+    W = ctx.canvas.width;
+    H = ctx.canvas.height;
+    // orizzontale: scala rispetto a 1280x720; verticale: rispetto alla larghezza (testo un po' più piccolo)
+    K = W >= H ? Math.min(W / 1280, H / 720) : (W / 720) * 0.75;
     const onVideo = o.background === 'video' && o.video;
-    const size = onVideo ? TEXT_SIZES[o.textSize] ?? TEXT_SIZES.medium : 60;
+    const size = (onVideo ? TEXT_SIZES[o.textSize] ?? TEXT_SIZES.medium : 60) * K;
     const row = size * 1.18;
-    const maxWidth = WIDTH * (onVideo ? 0.8 : 0.86);
+    const maxWidth = W * (W < H ? 0.88 : onVideo ? 0.8 : 0.86);
     if (onVideo) drawVideo(o.video);
     else drawSky();
     if (!lines.length) return;
@@ -227,7 +243,7 @@ export function createKaraoke(ctx) {
       const curRows = Math.min(2, Math.max(1, ...lines.map((l) => layout(l, size, maxWidth).rows)));
       band = bandRect(o, size, curRows);
     }
-    const currentTop = band ? band.currentTop : HEIGHT * 0.3;
+    const currentTop = band ? band.currentTop : H * 0.3;
     const style = onVideo && o.readability === 'outline'
       ? { outline: 'rgba(0, 0, 0, 0.95)', outlineWidth: size * 0.22, shadow: true, sung: o.sungColor }
       : { outline: onVideo ? 'rgba(0, 0, 0, 0.8)' : SKY.outline, outlineWidth: size * 0.17, shadow: false, sung: onVideo ? o.sungColor : '#ffd23f' };
@@ -261,7 +277,7 @@ export function createKaraoke(ctx) {
     if (band) {
       // sul video le righe restano dentro la fascia anche mentre scorrono
       ctx.beginPath();
-      ctx.rect(0, band.y, WIDTH, band.height);
+      ctx.rect(0, band.y, W, band.height);
       ctx.clip();
     }
     for (let i = from; i < to; i++) {
@@ -275,13 +291,16 @@ export function createKaraoke(ctx) {
       else if (idx < 0 && i === 0) alpha = 0.85;
       else if (dist > shownNext) alpha = 0.6 * s; // la riga che entra dal basso
       else alpha = Math.max(0, (onVideo ? 0.8 : 0.7) - 0.2 * (dist - 1));
-      if (top > HEIGHT || top + lays[i].height < -row) continue;
+      if (top > H || top + lays[i].height < -row) continue;
       drawLine(lays[i], top, { scale, alpha, t, active: isCur, size, style });
     }
     ctx.restore();
 
     const b = Math.max(0, idx); // prima della prima riga la pallina entra sulla riga 0
-    drawBall(lays[b], offset + tops[b], t, idx >= 0 ? SMALL + (1 - SMALL) * s : SMALL, size, onVideo ? o.ballColor : '#ff5a5f');
+    const anchors = anchorsOf(lays[b], offset + tops[b], idx >= 0 ? SMALL + (1 - SMALL) * s : SMALL, size);
+    // la pallina parte dall'ultima parola della riga precedente (che intanto scorre in su)
+    const prev = idx > 0 && lays[idx - 1] ? anchorsOf(lays[idx - 1], offset + tops[idx - 1], SMALL, size).at(-1) : null;
+    drawBall(anchors, prev, t, size, onVideo ? o.ballColor : '#ff5a5f');
   }
 
   return { draw };

@@ -18,7 +18,30 @@ export function normalizeWords(chunks) {
     if (end - start > MAX_WORD_DURATION) start = end - WORD_FALLBACK_DURATION;
     words.push({ text, start, end });
   }
-  return words;
+  return dropLoops(words);
+}
+
+/**
+ * Whisper a volte "si incanta" e ripete la stessa frase molte volte (allucinazione).
+ * Una sequenza di 1-4 parole ripetuta 4 o più volte di fila viene ridotta a 2 ripetizioni
+ * (le ripetizioni vere delle canzoni, tipo "piove, piove", restano).
+ */
+export function dropLoops(words, maxRepeats = 3) {
+  const key = (w) => norm(w.text);
+  const out = [...words];
+  for (let n = 1; n <= 4; n++) {
+    for (let i = 0; i + n <= out.length; i++) {
+      let reps = 1;
+      while (i + (reps + 1) * n <= out.length && sameGram(out, i, i + reps * n, n, key)) reps++;
+      if (reps > maxRepeats) out.splice(i + 2 * n, (reps - 2) * n);
+    }
+  }
+  return out;
+}
+
+function sameGram(arr, a, b, n, key) {
+  for (let k = 0; k < n; k++) if (key(arr[a + k]) !== key(arr[b + k])) return false;
+  return true;
 }
 
 const isCapitalized = (w) => /^[\p{Lu}]/u.test(w);

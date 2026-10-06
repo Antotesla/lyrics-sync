@@ -51,6 +51,12 @@
       <details id="lyrics-box">
         <summary>Hai già il testo? Incollalo per un risultato più preciso <span class="badge" id="lyrics-badge" hidden>trovato nel file</span></summary>
         <p class="hint">L'app userà le tue parole esatte e calcolerà solo i tempi. Una riga del testo = una riga del risultato. I tag come <code>[Chorus]</code> vengono ignorati.</p>
+        <div class="lyrics-from">
+          <label class="ghost-btn">🎵 Prendi il testo da un mp3
+            <input type="file" id="lyrics-file" hidden>
+          </label>
+          <span class="hint" id="lyrics-file-msg">Utile quando trascrivi un video: il testo arriva dall'mp3 (es. di Suno), i tempi dal video.</span>
+        </div>
         <textarea id="lyrics" rows="8" placeholder="Una riga per verso…"></textarea>
       </details>
 
@@ -105,6 +111,13 @@
         <button id="dl-lrc">LRC</button>
         <button id="dl-srt">SRT</button>
         <button id="dl-ass" title="Sottotitoli karaoke: parole che si colorano (VLC, Aegisub, ffmpeg)">Karaoke (.ass)</button>
+        <button id="export" class="primary-lite" title="Video con la canzone e il karaoke sopra">🎬 Esporta video</button>
+      </div>
+      <div class="export-box" id="export-box" hidden>
+        <p id="export-status"></p>
+        <progress id="export-progress" max="1" value="0"></progress>
+        <button id="export-cancel">Annulla</button>
+        <p class="hint">La registrazione dura quanto la canzone. Tieni questa scheda aperta e in primo piano: se la nascondi il video viene registrato a scatti.</p>
       </div>
       <p class="hint">Tocca ▶ per ascoltare da quella riga. I tempi si modificano a mano (es. 1:03.4). Usa <b>⏱</b> durante la riproduzione per fissare l'inizio della riga al punto attuale. Le righe <span class="warn-dot"></span> sono da controllare.</p>
       <ol class="lines" id="lines"></ol>
@@ -128,6 +141,8 @@
   </template>
 
   <!-- ?v=… va aggiornato a ogni rilascio (anche in js/app.js) per evitare file vecchi in cache -->
-  <script type="module" src="js/app.js?v=20261006e"></script>
+  <!-- fix-webm-duration 1.0.6 (MIT, Yury Sitnikov): aggiunge la durata ai WebM registrati dal browser -->
+  <script src="js/vendor/fix-webm-duration.js"></script>
+  <script type="module" src="js/app.js?v=20261006g"></script>
 </body>
 </html>

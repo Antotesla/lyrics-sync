@@ -17,7 +17,9 @@ Tutto gira **nel browser** (Whisper tramite [Transformers.js](https://github.com
 - Editor: ascolto da ogni riga, modifica di tempo e testo, ⏱ per fissare l'inizio al punto di riproduzione, unione ed eliminazione righe. Le righe incerte sono evidenziate.
 - **Anteprima karaoke** (stile video per bambini): la riga corrente si illumina parola per parola, le righe successive scorrono sotto e una pallina rimbalza sulle parole cantate. Pulsante ⛶ per lo schermo intero.
 - **Testo sopra un video esistente**: se carichi un video, il karaoke viene disegnato sopra (in basso, in alto o al centro). Per restare leggibile su qualsiasi colore usa una fascia scura semitrasparente (regolabile) oppure solo contorno e ombra; righe successive, dimensione e colori sono impostabili in "Aspetto del testo" e vengono ricordati. Il disegno (`js/karaoke.js`) dipende solo dal tempo, così servirà anche per esportare il video.
-- Export: TXT nel formato `(m:ss) testo`, **LRC** (testi sincronizzati), **SRT** (sottotitoli), **ASS karaoke** (parole che si colorano, con le stesse impostazioni di posizione, fascia e colore — la pallina c'è solo nell'anteprima; si apre con VLC o Aegisub, o si incide nel video con `ffmpeg -i video.mp4 -vf ass=canzone.ass out.mp4`).
+- **Testo da un mp3 mentre trascrivi un video**: "Prendi il testo da un mp3" legge il testo dai metadati (es. file di Suno); i tempi vengono calcolati sull'audio del video.
+- **Esporta video**: registra il video (o lo sfondo) con la canzone e il karaoke sopra, pallina compresa, nello stesso formato e proporzioni del file caricato (anche verticale). Preferisce MP4 H.264/AAC; se il file caricato è WebM esce WebM (con la durata corretta). La registrazione dura quanto la canzone: la scheda deve restare in primo piano.
+- Export testo: TXT nel formato `(m:ss) testo`, **LRC** (testi sincronizzati), **SRT** (sottotitoli), **ASS karaoke** (parole che si colorano, con le stesse impostazioni di posizione, fascia e colore — la pallina c'è solo nell'anteprima; si apre con VLC o Aegisub, o si incide nel video con `ffmpeg -i video.mp4 -vf ass=canzone.ass out.mp4`).
 
 ## Precisione e velocità misurate
 
@@ -59,7 +61,8 @@ Struttura:
 | `js/audio.js` | decodifica e conversione a 16 kHz mono |
 | `js/id3.js` | lettura del testo dai metadati mp3 |
 | `js/formats.js` | export TXT / LRC / SRT / ASS |
-| `js/karaoke.js` | disegno del karaoke su canvas (righe, colore, pallina) |
+| `js/karaoke.js` | disegno del karaoke su canvas (righe, colore, pallina), in qualsiasi formato |
+| `js/vendor/fix-webm-duration.js` | durata nei WebM registrati (MIT, Yury Sitnikov) |
 
 ## Pubblicazione gratuita (GitHub Pages)
 

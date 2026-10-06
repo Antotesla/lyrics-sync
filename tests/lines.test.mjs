@@ -47,3 +47,12 @@ test('alignLyrics interpola le righe non sentite e le segnala', () => {
   assert.equal(lines[1].uncertain, true);
   assert.ok(lines[1].start > 1 && lines[1].start < 9);
 });
+
+test('dropLoops toglie le frasi ripetute in loop ma lascia le ripetizioni normali', async () => {
+  const { dropLoops } = await import('../js/lines.js');
+  const ws = (txt) => txt.split(' ').map((text, i) => ({ text, start: i, end: i + 0.5 }));
+  const loop = dropLoops(ws('ciao il bel gatto, il bel gatto, il bel gatto, il bel gatto, il bel gatto, fine'));
+  assert.equal(loop.map((w) => w.text).join(' '), 'ciao il bel gatto, il bel gatto, fine');
+  const normal = dropLoops(ws('piove, piove, il fiore splash, splash'));
+  assert.equal(normal.length, 6);
+});

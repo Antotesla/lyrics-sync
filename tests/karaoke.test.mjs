@@ -23,3 +23,12 @@ test('ballAt: atterra sulle parole al loro inizio e salta a metà strada', () =>
   assert.deepEqual(ballAt(anchors, 2), { x: 300, y: 300 });
   assert.deepEqual(ballAt(anchors, 9), { x: 300, y: 300 }); // resta sull'ultima parola
 });
+
+test('ballAt: tra una riga e l\'altra salta dall\'ultima parola precedente, senza tornare indietro di colpo', () => {
+  const anchors = [{ x: 200, y: 300, start: 10 }];
+  const from = { x: 900, y: 200, start: 9 };
+  assert.deepEqual(ballAt(anchors, 9.05, from), { x: 900, y: 200 }); // ancora ferma sull'ultima parola
+  const mid = ballAt(anchors, 9.5, from); // a metà del salto
+  assert.ok(mid.x < 900 && mid.x > 200);
+  assert.deepEqual(ballAt(anchors, 10, from), { x: 200, y: 300 });
+});

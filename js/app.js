@@ -1,8 +1,8 @@
-import { decodeToMono16k } from './audio.js?v=20261006e';
-import { readId3Lyrics } from './id3.js?v=20261006e';
-import { normalizeWords, groupWords, parseLyrics, alignLyrics, distributeWords, shiftWords } from './lines.js?v=20261006e';
-import { formatShort, formatPrecise, parseTime, toTxt, toLrc, toSrt, toAss } from './formats.js?v=20261006e';
-import { createKaraoke, DEFAULT_OPTIONS } from './karaoke.js?v=20261006e';
+import { decodeToMono16k } from './audio.js?v=20261006g';
+import { readId3Lyrics } from './id3.js?v=20261006g';
+import { normalizeWords, groupWords, parseLyrics, alignLyrics, distributeWords, shiftWords } from './lines.js?v=20261006g';
+import { formatShort, formatPrecise, parseTime, toTxt, toLrc, toSrt, toAss } from './formats.js?v=20261006g';
+import { createKaraoke, DEFAULT_OPTIONS } from './karaoke.js?v=20261006g';
 
 const $ = (id) => document.getElementById(id);
 const els = {
@@ -40,6 +40,23 @@ async function selectFile(file) {
     els.lyricsBox.open = true;
   }
 }
+
+// Testo preso da un altro file (es. l'mp3 di Suno) mentre si trascrive un video
+$('lyrics-file').addEventListener('change', async (e) => {
+  const f = e.target.files[0];
+  e.target.value = '';
+  if (!f) return;
+  const msg = $('lyrics-file-msg');
+  const lyrics = readId3Lyrics(await f.slice(0, 2 * 1024 * 1024).arrayBuffer());
+  if (lyrics) {
+    els.lyrics.value = lyrics;
+    msg.textContent = `Testo preso da "${f.name}" (${parseLyrics(lyrics).length} righe). Ora premi Trascrivi.`;
+    msg.classList.remove('error');
+  } else {
+    msg.textContent = `"${f.name}" non contiene il testo nei metadati: incollalo a mano qui sotto.`;
+    msg.classList.add('error');
+  }
+});
 
 // ---------- Trascrizione ----------
 
@@ -87,7 +104,7 @@ function pickModel(hasLyrics) {
 }
 
 function runWhisper(audio, model) {
-  worker ??= new Worker(new URL('./worker.js?v=20261006e', import.meta.url), { type: 'module' });
+  worker ??= new Worker(new URL('./worker.js?v=20261006g', import.meta.url), { type: 'module' });
   const files = {};
   const started = performance.now();
   return new Promise((resolve, reject) => {
@@ -135,11 +152,27 @@ function showResult() {
   if (state.media.tagName === 'VIDEO') {
     state.media.addEventListener('loadedmetadata', () => {
       if (!state.media.videoWidth) setMedia('audio', url);
+      sizeCanvas();
     }, { once: true });
   }
+  sizeCanvas();
   els.result.hidden = false;
   renderLines();
   els.result.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+/** Il karaoke ha lo stesso formato del video (lato lungo max 1920 px); per l'audio 1280x720. */
+function sizeCanvas() {
+  const canvas = $('k-canvas');
+  const m = state.media;
+  let w = 1280, h = 720;
+  if (m?.tagName === 'VIDEO' && m.videoWidth) {
+    const k = Math.min(1, 1920 / Math.max(m.videoWidth, m.videoHeight));
+    w = Math.round((m.videoWidth * k) / 2) * 2;
+    h = Math.round((m.videoHeight * k) / 2) * 2;
+  }
+  if (canvas.width !== w || canvas.height !== h) { canvas.width = w; canvas.height = h; }
+  drawKaraoke();
 }
 
 function setMedia(kind, url) {
@@ -330,6 +363,110 @@ function updateControls() {
   $('k-seek').max = String(d || 1);
   if (document.activeElement !== $('k-seek')) $('k-seek').value = String(m.currentTime);
   $('k-time').textContent = `${formatShort(m.currentTime)} / ${formatShort(d)}`;
+}
+
+// ---------- Export video ----------
+
+let audioGraph = null; // { ctx, source, media }: un elemento media può essere collegato una sola volta
+let recording = null;
+
+/** Formato di registrazione: quello del file caricato se possibile, altrimenti MP4, altrimenti WebM. */
+function pickRecorderFormat() {
+  const mp4 = ['video/mp4;codecs=avc1.640028,mp4a.40.2', 'video/mp4;codecs=avc1.42E01E,mp4a.40.2', 'video/mp4;codecs=avc1,mp4a.40.2', 'video/mp4'];
+  const webm = ['video/webm;codecs=vp9,opus', 'video/webm;codecs=vp8,opus', 'video/webm'];
+  const ok = (list) => list.find((t) => window.MediaRecorder?.isTypeSupported?.(t));
+  const wantsWebm = /webm/i.test(state.file?.type || '') || /\.webm$/i.test(state.file?.name || '');
+  const h264 = ok(mp4.slice(0, 3)); // MP4 con H.264/AAC: si apre ovunque (WhatsApp, iPhone, Windows)
+  const mime = (wantsWebm && ok(webm)) || h264 || ok(mp4) || ok(webm);
+  if (!mime) return null;
+  const ext = mime.startsWith('video/mp4') ? 'mp4' : 'webm';
+  // MP4 senza H.264 esplicito: il browser potrebbe usare VP9/Opus, che alcuni lettori non aprono
+  const warning = ext === 'mp4' && !h264 ? ' Attenzione: questo browser crea MP4 con codec poco diffusi, alcuni lettori potrebbero non aprirlo.' : '';
+  return { mime, ext, warning };
+}
+
+function audioStreamOf(media) {
+  if (!audioGraph || audioGraph.media !== media) {
+    const ctx = audioGraph?.ctx || new (window.AudioContext || window.webkitAudioContext)();
+    const source = ctx.createMediaElementSource(media);
+    source.connect(ctx.destination); // continui a sentire la canzone
+    audioGraph = { ctx, source, media };
+  }
+  const dest = audioGraph.ctx.createMediaStreamDestination();
+  audioGraph.source.connect(dest);
+  return { stream: dest.stream, disconnect: () => audioGraph.source.disconnect(dest) };
+}
+
+$('export').addEventListener('click', async () => {
+  const m = state.media;
+  if (!m || recording) return;
+  const fmt = pickRecorderFormat();
+  if (!fmt) { setExport('Questo browser non sa registrare video. Usa Chrome o Edge aggiornati.', true); return; }
+  const canvas = $('k-canvas');
+  await audioGraph?.ctx.resume?.();
+  const audio = audioStreamOf(m);
+  await audioGraph.ctx.resume();
+  const stream = new MediaStream([...canvas.captureStream(30).getVideoTracks(), ...audio.stream.getAudioTracks()]);
+  const rec = new MediaRecorder(stream, {
+    mimeType: fmt.mime,
+    videoBitsPerSecond: Math.round(canvas.width * canvas.height * 3.5),
+    audioBitsPerSecond: 192000,
+  });
+  const parts = [];
+  recording = { rec, cancelled: false };
+  rec.ondataavailable = (e) => e.data.size && parts.push(e.data);
+  const finished = new Promise((resolve) => { rec.onstop = resolve; });
+  const onEnded = () => rec.state !== 'inactive' && rec.stop();
+  m.addEventListener('ended', onEnded);
+
+  $('export').disabled = true;
+  $('export-box').hidden = false;
+  setExport(`Preparo la registrazione (${fmt.ext.toUpperCase()})…`);
+  m.pause();
+  m.currentTime = 0;
+  await new Promise((r) => m.addEventListener('seeked', r, { once: true }));
+  drawKaraoke();
+  rec.start(1000);
+  const tick = setInterval(() => {
+    const d = m.duration || 1;
+    setExport(`Registrazione in corso: ${formatShort(m.currentTime)} / ${formatShort(d)} (${fmt.ext.toUpperCase()})`);
+    $('export-progress').value = m.currentTime / d;
+  }, 250);
+  try { await m.play(); } catch { onEnded(); }
+  await finished;
+  clearInterval(tick);
+  m.removeEventListener('ended', onEnded);
+  audio.disconnect();
+  stream.getTracks().forEach((t) => t.stop());
+  $('export').disabled = false;
+  const cancelled = recording.cancelled;
+  recording = null;
+  if (cancelled) { setExport('Esportazione annullata.'); return; }
+  let blob = new Blob(parts, { type: fmt.mime.split(';')[0] });
+  if (fmt.ext === 'webm' && window.ysFixWebmDuration) {
+    // i WebM registrati dal browser non hanno la durata: senza, molti lettori non permettono di avanzare
+    try { blob = await window.ysFixWebmDuration(blob, (m.duration || 0) * 1000, { logger: false }); } catch { /* resta senza durata */ }
+  }
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `${state.baseName}-karaoke.${fmt.ext}`;
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 60000);
+  $('export-progress').value = 1;
+  setExport(`Fatto: ${a.download} (${(blob.size / 1048576).toFixed(1)} MB).${fmt.warning}`);
+});
+
+$('export-cancel').addEventListener('click', () => {
+  if (!recording) { $('export-box').hidden = true; return; }
+  recording.cancelled = true;
+  state.media.pause();
+  if (recording.rec.state !== 'inactive') recording.rec.stop();
+});
+
+function setExport(msg, isError = false) {
+  $('export-box').hidden = false;
+  $('export-status').textContent = msg;
+  $('export-status').classList.toggle('error', isError);
 }
 
 // ---------- Export ----------

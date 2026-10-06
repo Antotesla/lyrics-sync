@@ -72,6 +72,12 @@ button.primary {
 button.ghost { margin-top: 12px; background: transparent; }
 
 details { margin-bottom: 4px; }
+.lyrics-from { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; margin: 4px 0 10px; }
+.lyrics-from .hint { margin: 0; }
+.ghost-btn {
+  display: inline-block; padding: 8px 14px; border: 1px solid var(--border); border-radius: 10px;
+  background: var(--bg); cursor: pointer; white-space: nowrap;
+}
 summary { cursor: pointer; padding: 4px 0; }
 details .hint { margin-top: 8px; }
 .badge {
@@ -89,7 +95,10 @@ details .hint { margin-top: 8px; }
 progress { width: 100%; }
 
 .karaoke { position: relative; margin-top: 10px; }
-.karaoke canvas { display: block; width: 100%; height: auto; aspect-ratio: 16 / 9; border-radius: 12px; background: #2f80ed; }
+.karaoke canvas {
+  display: block; margin: 0 auto; width: auto; height: auto; max-width: 100%; max-height: 75vh;
+  border-radius: 12px; background: #2f80ed;
+}
 .karaoke:fullscreen canvas { border-radius: 0; width: 100vw; height: 100vh; object-fit: contain; background: #000; }
 .controls { display: flex; align-items: center; gap: 10px; margin-top: 10px; }
 .controls button { padding: 6px 14px; min-width: 3em; }
@@ -98,6 +107,10 @@ progress { width: 100%; }
 .media-host { position: absolute; width: 1px; height: 1px; overflow: hidden; opacity: 0; pointer-events: none; }
 .media-host video, .media-host audio { width: 320px; height: 180px; }
 .look { margin-top: 12px; }
+.primary-lite { background: var(--accent); color: var(--accent-text); border: none; font-weight: 600; }
+.export-box { border: 1px solid var(--border); border-radius: 10px; padding: 12px; margin: 4px 0 12px; }
+.export-box p { margin: 0 0 8px; }
+.export-box progress { width: 100%; margin-bottom: 8px; }
 .look-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 10px; margin: 10px 0; }
 .k-full {
   position: absolute; right: 8px; top: 8px; padding: 4px 9px;
