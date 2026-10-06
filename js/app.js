@@ -1,8 +1,8 @@
-import { decodeToMono16k } from './audio.js?v=20261006h';
-import { readId3Lyrics } from './id3.js?v=20261006h';
-import { normalizeWords, groupWords, parseLyrics, alignLyrics, distributeWords, shiftWords } from './lines.js?v=20261006h';
-import { formatShort, formatPrecise, parseTime, toTxt, toLrc, toSrt, toAss } from './formats.js?v=20261006h';
-import { createKaraoke, DEFAULT_OPTIONS } from './karaoke.js?v=20261006h';
+import { decodeToMono16k } from './audio.js?v=20261006i';
+import { readId3Lyrics } from './id3.js?v=20261006i';
+import { normalizeWords, groupWords, parseLyrics, alignLyrics, distributeWords, shiftWords } from './lines.js?v=20261006i';
+import { formatShort, formatPrecise, parseTime, toTxt, toLrc, toSrt, toAss } from './formats.js?v=20261006i';
+import { createKaraoke, DEFAULT_OPTIONS } from './karaoke.js?v=20261006i';
 
 const $ = (id) => document.getElementById(id);
 const els = {
@@ -104,7 +104,7 @@ function pickModel() {
 }
 
 function runWhisper(audio, model) {
-  worker ??= new Worker(new URL('./worker.js?v=20261006h', import.meta.url), { type: 'module' });
+  worker ??= new Worker(new URL('./worker.js?v=20261006i', import.meta.url), { type: 'module' });
   const files = {};
   const started = performance.now();
   return new Promise((resolve, reject) => {
@@ -269,7 +269,7 @@ function resort() {
 }
 
 function seek(t) {
-  if (!state.media) return;
+  if (!state.media || recording) return;
   state.media.currentTime = Math.max(0, t - 0.2);
   state.media.play();
 }
@@ -417,7 +417,13 @@ $('export').addEventListener('click', async () => {
   rec.ondataavailable = (e) => e.data.size && parts.push(e.data);
   const finished = new Promise((resolve) => { rec.onstop = resolve; });
   const onEnded = () => rec.state !== 'inactive' && rec.stop();
+  // pausa durante l'export = pausa della registrazione (altrimenti nel video resta l'immagine ferma)
+  const onPause = () => { if (rec.state === 'recording' && !m.ended) rec.pause(); };
+  const onPlay = () => { if (rec.state === 'paused') rec.resume(); };
   m.addEventListener('ended', onEnded);
+  m.addEventListener('pause', onPause);
+  m.addEventListener('play', onPlay);
+  $('k-seek').disabled = true; // spostarsi avanti/indietro rovinerebbe il video registrato
 
   $('export').disabled = true;
   $('export-box').hidden = false;
@@ -427,15 +433,20 @@ $('export').addEventListener('click', async () => {
   await new Promise((r) => m.addEventListener('seeked', r, { once: true }));
   drawKaraoke();
   rec.start(1000);
+  rec.pause(); // riparte con il play, così l'inizio del video coincide con l'inizio della canzone
   const tick = setInterval(() => {
     const d = m.duration || 1;
-    setExport(`Registrazione in corso: ${formatShort(m.currentTime)} / ${formatShort(d)} (${fmt.ext.toUpperCase()})`);
+    const paused = m.paused && !m.ended ? ' — in pausa: premi ▶ per continuare' : '';
+    setExport(`Registrazione in corso: ${formatShort(m.currentTime)} / ${formatShort(d)} (${fmt.ext.toUpperCase()})${paused}`);
     $('export-progress').value = m.currentTime / d;
   }, 250);
-  try { await m.play(); } catch { onEnded(); }
+  try { await m.play(); onPlay(); } catch { onEnded(); }
   await finished;
   clearInterval(tick);
   m.removeEventListener('ended', onEnded);
+  m.removeEventListener('pause', onPause);
+  m.removeEventListener('play', onPlay);
+  $('k-seek').disabled = false;
   audio.disconnect();
   stream.getTracks().forEach((t) => t.stop());
   $('export').disabled = false;
