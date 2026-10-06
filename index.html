@@ -110,6 +110,11 @@
         <button id="dl-lrc">LRC</button>
         <button id="dl-srt">SRT</button>
         <button id="dl-ass" title="Sottotitoli karaoke: parole che si colorano (VLC, Aegisub, ffmpeg)">Karaoke (.ass)</button>
+        <button id="dl-debug" title="Piccolo file con i dati della trascrizione, per segnalare un problema">Dati tecnici</button>
+        <select id="export-quality" aria-label="Qualità del video esportato" title="Qualità del video esportato">
+          <option value="high">Qualità alta</option>
+          <option value="light">Qualità leggera (file più piccolo)</option>
+        </select>
         <button id="export" class="primary-lite" title="Video con la canzone e il karaoke sopra">🎬 Esporta video</button>
       </div>
       <div class="export-box" id="export-box" hidden>
@@ -142,6 +147,6 @@
   <!-- ?v=… va aggiornato a ogni rilascio (anche in js/app.js) per evitare file vecchi in cache -->
   <!-- fix-webm-duration 1.0.6 (MIT, Yury Sitnikov): aggiunge la durata ai WebM registrati dal browser -->
   <script src="js/vendor/fix-webm-duration.js"></script>
-  <script type="module" src="js/app.js?v=20261006k"></script>
+  <script type="module" src="js/app.js?v=20261006l"></script>
 </body>
 </html>

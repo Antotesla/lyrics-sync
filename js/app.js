@@ -1,8 +1,8 @@
-import { decodeToMono16k } from './audio.js?v=20261006k';
-import { readId3Lyrics } from './id3.js?v=20261006k';
-import { normalizeWords, groupWords, parseLyrics, alignLyrics, distributeWords, shiftWords } from './lines.js?v=20261006k';
-import { formatShort, formatPrecise, parseTime, toTxt, toLrc, toSrt, toAss } from './formats.js?v=20261006k';
-import { createKaraoke, DEFAULT_OPTIONS } from './karaoke.js?v=20261006k';
+import { decodeToMono16k } from './audio.js?v=20261006l';
+import { readId3Lyrics } from './id3.js?v=20261006l';
+import { normalizeWords, groupWords, parseLyrics, alignLyrics, distributeWords, shiftWords } from './lines.js?v=20261006l';
+import { formatShort, formatPrecise, parseTime, toTxt, toLrc, toSrt, toAss } from './formats.js?v=20261006l';
+import { createKaraoke, DEFAULT_OPTIONS } from './karaoke.js?v=20261006l';
 
 const $ = (id) => document.getElementById(id);
 const els = {
@@ -28,7 +28,8 @@ els.drop.addEventListener('drop', (e) => e.dataTransfer.files[0] && selectFile(e
 
 async function selectFile(file) {
   state.file = file;
-  state.baseName = file.name.replace(/\.[^.]+$/, '') || 'testo';
+  // toglie anche estensioni doppie (es. "canzone.mp3.mpeg" → "canzone")
+  state.baseName = file.name.replace(/(\.(mp3|mpeg|mpga|wav|m4a|aac|ogg|oga|flac|mp4|m4v|mov|webm|mkv|avi|3gp))+$/i, '') || 'testo';
   els.dropTitle.textContent = file.name;
   els.go.disabled = false;
   setStatus('');
@@ -63,6 +64,7 @@ $('lyrics-file').addEventListener('change', async (e) => {
 els.go.addEventListener('click', transcribe);
 
 const FALLBACK_MODEL = 'Xenova/whisper-base'; // incluso nel sito (models/)
+const APP_VERSION = '20261006l';
 
 async function transcribe() {
   if (!state.file) return;
@@ -86,6 +88,13 @@ async function transcribe() {
     const words = normalizeWords(chunks);
     if (!words.length) throw new Error('Non ho riconosciuto parole cantate in questo file.');
     state.lines = lyricLines.length ? alignLyrics(lyricLines, words) : groupWords(words);
+    // dati per l'assistenza: permettono di riprodurre esattamente l'allineamento fatto su questo PC
+    state.debug = {
+      app: 'lyrics-sync', version: APP_VERSION, createdAt: new Date().toISOString(),
+      file: { name: state.file.name, type: state.file.type, size: state.file.size },
+      model: fallbackNote ? FALLBACK_MODEL : model, language: els.language.value,
+      userAgent: navigator.userAgent, lyrics: els.lyrics.value, chunks,
+    };
     showResult();
     const unsure = state.lines.filter((l) => l.uncertain).length;
     setStatus(`Fatto: ${state.lines.length} righe` + (unsure ? `, ${unsure} da controllare.` : '.') + fallbackNote);
@@ -104,7 +113,7 @@ function pickModel() {
 }
 
 function runWhisper(audio, model) {
-  worker ??= new Worker(new URL('./worker.js?v=20261006k', import.meta.url), { type: 'module' });
+  worker ??= new Worker(new URL('./worker.js?v=20261006l', import.meta.url), { type: 'module' });
   const files = {};
   const started = performance.now();
   return new Promise((resolve, reject) => {
@@ -410,7 +419,8 @@ $('export').addEventListener('click', async () => {
   const stream = new MediaStream([...canvas.captureStream(30).getVideoTracks(), ...audio.stream.getAudioTracks()]);
   const rec = new MediaRecorder(stream, {
     mimeType: fmt.mime,
-    videoBitsPerSecond: Math.round(canvas.width * canvas.height * 3.5),
+    // "leggera": file ~2,5 volte più piccolo (comodo da inviare), qualità ancora buona per testo e cartoni
+    videoBitsPerSecond: Math.round(canvas.width * canvas.height * ($('export-quality').value === 'light' ? 1.4 : 3.5)),
     audioBitsPerSecond: 192000,
   });
   const parts = [];
@@ -528,6 +538,10 @@ $('copy').addEventListener('click', async () => {
 $('dl-txt').addEventListener('click', () => download(toTxt(cleanLines()), 'txt'));
 $('dl-lrc').addEventListener('click', () => download(toLrc(cleanLines(), state.baseName), 'lrc'));
 $('dl-srt').addEventListener('click', () => download(toSrt(cleanLines()), 'srt'));
+$('dl-debug').addEventListener('click', () => {
+  if (!state.debug) return;
+  download(JSON.stringify(state.debug), 'dati-tecnici.json');
+});
 $('dl-ass').addEventListener('click', () => download(toAss(cleanLines(), state.baseName, karaokeOptions()), 'ass'));
 
 function download(text, ext) {
