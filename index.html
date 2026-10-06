@@ -5,6 +5,9 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Lyrics Sync</title>
   <meta name="description" content="Trascrive le canzoni con il tempo di ogni riga, direttamente nel browser.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@700&display=swap">
   <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
@@ -63,9 +66,9 @@
 
     <section class="card" id="result" hidden>
       <div class="player" id="player"></div>
-      <div class="karaoke" id="karaoke" aria-live="off">
-        <p class="k-cur" id="k-cur"></p>
-        <p class="k-next" id="k-next"></p>
+      <div class="karaoke" id="karaoke">
+        <canvas id="k-canvas" width="1280" height="720" aria-label="Anteprima karaoke"></canvas>
+        <button class="k-full" id="k-full" title="Schermo intero" aria-label="Schermo intero">⛶</button>
       </div>
       <div class="toolbar">
         <button id="copy">Copia testo</button>
@@ -96,6 +99,6 @@
   </template>
 
   <!-- ?v=… va aggiornato a ogni rilascio (anche in js/app.js) per evitare file vecchi in cache -->
-  <script type="module" src="js/app.js?v=20261006b"></script>
+  <script type="module" src="js/app.js?v=20261006c"></script>
 </body>
 </html>

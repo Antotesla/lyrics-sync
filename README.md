@@ -15,7 +15,7 @@ Tutto gira **nel browser** (Whisper tramite [Transformers.js](https://github.com
 - Modelli: **Automatico** (base se c'è il testo, small altrimenti), **Preciso** (whisper-small, ~250 MB), **Veloce** (whisper-base, ~80 MB). Il download avviene solo la prima volta, poi resta in cache.
 - **Testo noto (consigliato)**: se incolli il testo (anche con i tempi già scritti, che vengono ignorati) — o se l'mp3 lo contiene già nei metadati, come i file di Suno — l'app usa le tue parole esatte e calcola solo i tempi. È la modalità più affidabile.
 - Editor: ascolto da ogni riga, modifica di tempo e testo, ⏱ per fissare l'inizio al punto di riproduzione, unione ed eliminazione righe. Le righe incerte sono evidenziate.
-- **Anteprima karaoke**: sotto il player la riga corrente si colora parola per parola, con la riga successiva in grigio.
+- **Anteprima karaoke** (stile video per bambini): la riga corrente si illumina parola per parola, le righe successive scorrono sotto e una pallina rimbalza sulle parole cantate. Pulsante ⛶ per lo schermo intero. Il disegno (`js/karaoke.js`) dipende solo dal tempo, così servirà anche per esportare il video.
 - Export: TXT nel formato `(m:ss) testo`, **LRC** (testi sincronizzati), **SRT** (sottotitoli), **ASS karaoke** (parole che si colorano; si apre con VLC o Aegisub, o si incide nel video con `ffmpeg -i video.mp4 -vf ass=canzone.ass out.mp4`).
 
 ## Precisione e velocità misurate
@@ -57,7 +57,8 @@ Struttura:
 | `js/lines.js` | parole → righe; allineamento con un testo noto |
 | `js/audio.js` | decodifica e conversione a 16 kHz mono |
 | `js/id3.js` | lettura del testo dai metadati mp3 |
-| `js/formats.js` | export TXT / LRC / SRT |
+| `js/formats.js` | export TXT / LRC / SRT / ASS |
+| `js/karaoke.js` | disegno del karaoke su canvas (righe, colore, pallina) |
 
 ## Pubblicazione gratuita (GitHub Pages)
 

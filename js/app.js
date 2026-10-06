@@ -1,7 +1,8 @@
-import { decodeToMono16k } from './audio.js?v=20261006b';
-import { readId3Lyrics } from './id3.js?v=20261006b';
-import { normalizeWords, groupWords, parseLyrics, alignLyrics, distributeWords, shiftWords } from './lines.js?v=20261006b';
-import { formatShort, formatPrecise, parseTime, toTxt, toLrc, toSrt, toAss } from './formats.js?v=20261006b';
+import { decodeToMono16k } from './audio.js?v=20261006c';
+import { readId3Lyrics } from './id3.js?v=20261006c';
+import { normalizeWords, groupWords, parseLyrics, alignLyrics, distributeWords, shiftWords } from './lines.js?v=20261006c';
+import { formatShort, formatPrecise, parseTime, toTxt, toLrc, toSrt, toAss } from './formats.js?v=20261006c';
+import { createKaraoke } from './karaoke.js?v=20261006c';
 
 const $ = (id) => document.getElementById(id);
 const els = {
@@ -74,7 +75,7 @@ function pickModel(hasLyrics) {
 }
 
 function runWhisper(audio, model) {
-  worker ??= new Worker(new URL('./worker.js?v=20261006b', import.meta.url), { type: 'module' });
+  worker ??= new Worker(new URL('./worker.js?v=20261006c', import.meta.url), { type: 'module' });
   const files = {};
   const started = performance.now();
   return new Promise((resolve, reject) => {
@@ -152,7 +153,7 @@ function renderLines() {
     els.lines.append(li);
   });
   highlightCurrent();
-  drawKaraoke(true);
+  drawKaraoke();
 }
 
 els.lines.addEventListener('click', (e) => {
@@ -199,7 +200,7 @@ els.lines.addEventListener('focusout', (e) => {
     } else {
       line.words = distributeWords(line.text, line.start, line.end ?? line.start + 2);
     }
-    drawKaraoke(true);
+    drawKaraoke();
   }
 });
 els.lines.addEventListener('keydown', (e) => {
@@ -235,43 +236,25 @@ function highlightCurrent() {
 
 // ---------- Anteprima karaoke ----------
 
-let kLine = -2;
+const karaoke = createKaraoke($('k-canvas').getContext('2d'));
 
 function karaokeLoop() {
   drawKaraoke();
   if (state.media && !state.media.paused) requestAnimationFrame(karaokeLoop);
 }
 
-function drawKaraoke(force = false) {
-  if (!state.media) return;
-  const t = state.media.currentTime;
-  // riga corrente = ultima iniziata; mostrata in anticipo di 0,6 s come nel file .ass
-  let cur = -1;
-  state.lines.forEach((l, i) => { if ((l.words?.[0]?.start ?? l.start) - 0.6 <= t) cur = i; });
-  if (cur !== kLine || force) {
-    kLine = cur;
-    const curEl = $('k-cur');
-    curEl.replaceChildren();
-    const line = state.lines[cur];
-    if (line) {
-      const words = line.words?.length ? line.words : distributeWords(line.text, line.start, line.end ?? line.start + 2);
-      words.forEach((w, k) => {
-        const span = document.createElement('span');
-        span.className = 'k-word';
-        span.textContent = w.text;
-        span.dataset.s = w.start;
-        span.dataset.e = w.end;
-        curEl.append(span, k < words.length - 1 ? ' ' : '');
-      });
-    }
-    $('k-next').textContent = state.lines[cur + 1]?.text || '';
-  }
-  for (const span of $('k-cur').children) {
-    const s = Number(span.dataset.s), e = Number(span.dataset.e);
-    const p = t <= s ? 0 : t >= e ? 1 : (t - s) / (e - s);
-    span.style.setProperty('--p', p.toFixed(3));
-  }
+function drawKaraoke() {
+  karaoke.draw(state.lines.filter((l) => l.text.trim()), state.media ? state.media.currentTime : 0);
 }
+
+// Il font arrotondato arriva da Google Fonts: ridisegna quando è pronto (le misure delle parole cambiano)
+document.fonts?.load('700 60px "Baloo 2"').then(() => state.lines.length && drawKaraoke(), () => {});
+
+$('k-full').addEventListener('click', () => {
+  const box = $('karaoke');
+  if (document.fullscreenElement) document.exitFullscreen();
+  else box.requestFullscreen?.().catch(() => {});
+});
 
 // ---------- Export ----------
 
