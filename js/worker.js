@@ -32,10 +32,13 @@ self.onmessage = async ({ data }) => {
     self.postMessage({ type: 'result', chunks: words });
   } catch (err) {
     let message = String(err?.message || err);
-    if (/Forbidden access|403/.test(message)) {
+    const blocked = /Forbidden access|403/.test(message);
+    if (blocked) {
       message = 'Hugging Face ha rifiutato il download del modello (403). Scegli il modello "Veloce", che è incluso nell\'app.';
+      asr = null; // il prossimo tentativo (anche con un altro modello) riparte da zero
+      loadedModel = null;
     }
-    self.postMessage({ type: 'error', message });
+    self.postMessage({ type: 'error', message, code: blocked ? 'blocked' : undefined });
   }
 };
 

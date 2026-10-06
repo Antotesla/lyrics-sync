@@ -1,8 +1,8 @@
-import { decodeToMono16k } from './audio.js?v=20261006d';
-import { readId3Lyrics } from './id3.js?v=20261006d';
-import { normalizeWords, groupWords, parseLyrics, alignLyrics, distributeWords, shiftWords } from './lines.js?v=20261006d';
-import { formatShort, formatPrecise, parseTime, toTxt, toLrc, toSrt, toAss } from './formats.js?v=20261006d';
-import { createKaraoke, DEFAULT_OPTIONS } from './karaoke.js?v=20261006d';
+import { decodeToMono16k } from './audio.js?v=20261006e';
+import { readId3Lyrics } from './id3.js?v=20261006e';
+import { normalizeWords, groupWords, parseLyrics, alignLyrics, distributeWords, shiftWords } from './lines.js?v=20261006e';
+import { formatShort, formatPrecise, parseTime, toTxt, toLrc, toSrt, toAss } from './formats.js?v=20261006e';
+import { createKaraoke, DEFAULT_OPTIONS } from './karaoke.js?v=20261006e';
 
 const $ = (id) => document.getElementById(id);
 const els = {
@@ -45,21 +45,33 @@ async function selectFile(file) {
 
 els.go.addEventListener('click', transcribe);
 
+const FALLBACK_MODEL = 'Xenova/whisper-base'; // incluso nel sito (models/)
+
 async function transcribe() {
   if (!state.file) return;
+  let fallbackNote = '';
   els.go.disabled = true;
   try {
     setStatus('Leggo il file…');
     showProgress(null);
     const { audio } = await decodeToMono16k(await state.file.arrayBuffer());
     const lyricLines = parseLyrics(els.lyrics.value);
-    const chunks = await runWhisper(audio, pickModel(lyricLines.length > 0));
+    const model = pickModel(lyricLines.length > 0);
+    let chunks;
+    try {
+      chunks = await runWhisper(audio.slice(), model);
+    } catch (err) {
+      // In automatico, se Hugging Face blocca il modello preciso, si usa quello veloce incluso nel sito
+      if (err.code !== 'blocked' || els.model.value !== 'auto' || model === FALLBACK_MODEL) throw err;
+      fallbackNote = ' Il modello preciso non si è potuto scaricare (Hugging Face lo blocca): ho usato quello veloce.';
+      chunks = await runWhisper(audio, FALLBACK_MODEL);
+    }
     const words = normalizeWords(chunks);
     if (!words.length) throw new Error('Non ho riconosciuto parole cantate in questo file.');
     state.lines = lyricLines.length ? alignLyrics(lyricLines, words) : groupWords(words);
     showResult();
     const unsure = state.lines.filter((l) => l.uncertain).length;
-    setStatus(`Fatto: ${state.lines.length} righe` + (unsure ? `, ${unsure} da controllare.` : '.'));
+    setStatus(`Fatto: ${state.lines.length} righe` + (unsure ? `, ${unsure} da controllare.` : '.') + fallbackNote);
   } catch (err) {
     setStatus(err.message || String(err), true);
   } finally {
@@ -71,11 +83,11 @@ async function transcribe() {
 // Con il testo noto servono solo i tempi: il modello base è preciso quanto small e ~3 volte più veloce
 function pickModel(hasLyrics) {
   if (els.model.value !== 'auto') return els.model.value;
-  return hasLyrics ? 'Xenova/whisper-base' : 'Xenova/whisper-small';
+  return hasLyrics ? FALLBACK_MODEL : 'Xenova/whisper-small';
 }
 
 function runWhisper(audio, model) {
-  worker ??= new Worker(new URL('./worker.js?v=20261006d', import.meta.url), { type: 'module' });
+  worker ??= new Worker(new URL('./worker.js?v=20261006e', import.meta.url), { type: 'module' });
   const files = {};
   const started = performance.now();
   return new Promise((resolve, reject) => {
@@ -93,7 +105,7 @@ function runWhisper(audio, model) {
       } else if (data.type === 'result') {
         resolve(data.chunks);
       } else if (data.type === 'error') {
-        reject(new Error('Errore durante la trascrizione: ' + data.message));
+        reject(Object.assign(new Error('Errore durante la trascrizione: ' + data.message), { code: data.code }));
       }
     };
     worker.onerror = (e) => { reject(new Error(e.message || 'Errore nel worker')); };
