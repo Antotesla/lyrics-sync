@@ -1,8 +1,8 @@
-import { decodeToMono16k } from './audio.js?v=20261006l';
-import { readId3Lyrics } from './id3.js?v=20261006l';
-import { normalizeWords, groupWords, parseLyrics, alignLyrics, distributeWords, shiftWords } from './lines.js?v=20261006l';
-import { formatShort, formatPrecise, parseTime, toTxt, toLrc, toSrt, toAss } from './formats.js?v=20261006l';
-import { createKaraoke, DEFAULT_OPTIONS } from './karaoke.js?v=20261006l';
+import { decodeToMono16k } from './audio.js?v=20261006m';
+import { readId3Lyrics } from './id3.js?v=20261006m';
+import { normalizeWords, groupWords, parseLyrics, alignLyrics, distributeWords, shiftWords } from './lines.js?v=20261006m';
+import { formatShort, formatPrecise, parseTime, toTxt, toLrc, toSrt, toAss } from './formats.js?v=20261006m';
+import { createKaraoke, DEFAULT_OPTIONS } from './karaoke.js?v=20261006m';
 
 const $ = (id) => document.getElementById(id);
 const els = {
@@ -64,7 +64,7 @@ $('lyrics-file').addEventListener('change', async (e) => {
 els.go.addEventListener('click', transcribe);
 
 const FALLBACK_MODEL = 'Xenova/whisper-base'; // incluso nel sito (models/)
-const APP_VERSION = '20261006l';
+const APP_VERSION = '20261006m';
 
 async function transcribe() {
   if (!state.file) return;
@@ -113,7 +113,7 @@ function pickModel() {
 }
 
 function runWhisper(audio, model) {
-  worker ??= new Worker(new URL('./worker.js?v=20261006l', import.meta.url), { type: 'module' });
+  worker ??= new Worker(new URL('./worker.js?v=20261006m', import.meta.url), { type: 'module' });
   const files = {};
   const started = performance.now();
   return new Promise((resolve, reject) => {
